@@ -36,16 +36,16 @@ const ContactPage = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-800">Name</label>
-                <input id="name" name="name" required value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full rounded-md border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-600 focus:border-blue-600" aria-label="Your name" />
+                <input id="name" name="name" autoComplete="name" placeholder="Your full name" required value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full rounded-md border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-600 focus:border-blue-600" aria-label="Your name" />
               </div>
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-800">Email</label>
-                <input id="email" type="email" name="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full rounded-md border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-600 focus:border-blue-600" aria-label="Your email address" />
+                <input id="email" type="email" name="email" autoComplete="email" placeholder="you@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full rounded-md border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-600 focus:border-blue-600" aria-label="Your email address" />
               </div>
             </div>
             <div className="mt-6">
               <label htmlFor="message" className="block text-sm font-medium text-gray-800">Message</label>
-              <textarea id="message" name="message" required rows={6} value={message} onChange={(e) => setMessage(e.target.value)} className="mt-1 w-full rounded-md border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-600 focus:border-blue-600" aria-label="Your message" />
+              <textarea id="message" name="message" placeholder="How can we help?" required rows={6} value={message} onChange={(e) => setMessage(e.target.value)} className="mt-1 w-full rounded-md border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-600 focus:border-blue-600" aria-label="Your message" />
             </div>
             <div className="mt-6">
               <Button type="submit" className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">Send message</Button>
