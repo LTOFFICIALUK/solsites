@@ -10,6 +10,11 @@ interface ClassicHeroProps {
   accentColor: string
   backgroundImage?: string
   logo?: string
+  onEdit?: {
+    title?: (value: string) => void
+    subtitle?: (value: string) => void
+    description?: (value: string) => void
+  }
 }
 
 export const ClassicHero = ({
@@ -21,7 +26,8 @@ export const ClassicHero = ({
   secondaryColor,
   accentColor,
   backgroundImage,
-  logo
+  logo,
+  onEdit
 }: ClassicHeroProps) => {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-20">
@@ -59,16 +65,33 @@ export const ClassicHero = ({
 
             {/* Main Content */}
             <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-              {title}
+              <span
+                contentEditable={!!onEdit?.title}
+                suppressContentEditableWarning
+                onBlur={(e) => onEdit?.title?.(e.currentTarget.textContent || '')}
+              >
+                {title}
+              </span>
               <span 
                 className="block"
                 style={{ color: primaryColor }}
               >
-                {subtitle}
+                <span
+                  contentEditable={!!onEdit?.subtitle}
+                  suppressContentEditableWarning
+                  onBlur={(e) => onEdit?.subtitle?.(e.currentTarget.textContent || '')}
+                >
+                  {subtitle}
+                </span>
               </span>
             </h1>
 
-            <p className="text-xl text-gray-600 mb-8 max-w-2xl">
+            <p
+              className="text-xl text-gray-600 mb-8 max-w-2xl"
+              contentEditable={!!onEdit?.description}
+              suppressContentEditableWarning
+              onBlur={(e) => onEdit?.description?.(e.currentTarget.textContent || '')}
+            >
               {description}
             </p>
 
