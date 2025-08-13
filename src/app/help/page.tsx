@@ -14,11 +14,7 @@ const HelpPage = () => {
     { title: 'Publishing your site', href: '/docs#publish' },
   ]
 
-  const faqs = [
-    { q: 'Is building free?', a: 'Yes. You can build, save, and preview your site without paying. Publishing costs 1 SOL per project.' },
-    { q: 'Can I change templates later?', a: 'Yes. You can switch templates and keep your content. Review before publishing.' },
-    { q: 'What domain do I get?', a: 'Your site is published to {name}.solsites.fun with free SSL and global CDN.' },
-  ]
+  // FAQ removed per request to simplify the Help Center page
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
@@ -62,16 +58,7 @@ const HelpPage = () => {
         </div>
       </section>
 
-      <section className="py-8 bg-white border-t border-gray-200">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {faqs.map(({ q, a }) => (
-            <details key={q} className="group rounded-xl border border-gray-200 p-5 open:shadow-sm bg-white">
-              <summary className="marker:none cursor-pointer list-none select-none font-medium text-gray-900 outline-none focus-visible:ring-2 focus-visible:ring-blue-600 rounded">{q}</summary>
-              <p className="mt-3 text-gray-600 text-sm">{a}</p>
-            </details>
-          ))}
-        </div>
-      </section>
+      {/* FAQ section intentionally removed */}
 
       <SiteFooter />
     </div>
