@@ -323,9 +323,9 @@ export default function HomePage() {
               {user ? 'Go to Dashboard' : 'Start Building Now'}
               <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
-            <Link href="/examples">
+            <Link href="/templates">
               <Button size="lg" variant="outline" className="border-white text-white hover:bg-white hover:text-purple-600 text-lg px-8 py-4">
-                View Examples
+                Browse Templates
               </Button>
             </Link>
           </div>

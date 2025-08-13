@@ -19,7 +19,6 @@ const SiteFooter = () => {
               <li><Link href="/templates" className="hover:text-white transition-colors">Templates</Link></li>
               <li><Link href="/#features" className="hover:text-white transition-colors">Features</Link></li>
               <li><Link href="/pricing" className="hover:text-white transition-colors">Pricing</Link></li>
-              <li><Link href="/examples" className="hover:text-white transition-colors">Examples</Link></li>
             </ul>
           </div>
           <div>
@@ -27,7 +26,7 @@ const SiteFooter = () => {
             <ul className="space-y-2 text-gray-400">
               <li><Link href="/help" className="hover:text-white transition-colors">Help Center</Link></li>
               <li><Link href="/docs" className="hover:text-white transition-colors">Documentation</Link></li>
-              <li><Link href="/community" className="hover:text-white transition-colors">Community</Link></li>
+              
               <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
             </ul>
           </div>
