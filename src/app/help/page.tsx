@@ -47,7 +47,7 @@ const HelpPage = () => {
               <h4 className="font-semibold text-gray-900">Need more help?</h4>
               <p className="text-sm text-gray-600 mt-2">Reach out to our team. We usually reply within 24 hours.</p>
               <Link href="/contact">
-                <Button className="mt-4 w-full">Contact support</Button>
+                <Button className="mt-4 w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-sm">Contact support</Button>
               </Link>
             </div>
             <div className="bg-white border border-gray-200 rounded-2xl p-6">
