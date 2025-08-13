@@ -58,7 +58,7 @@ const AboutPage = () => {
               ))}
             </div>
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
-              <Link href="/templates"><Button>Explore templates</Button></Link>
+              <Link href="/templates"><Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white">Explore templates</Button></Link>
               <Link href="/pricing"><Button variant="outline">View pricing</Button></Link>
             </div>
           </div>

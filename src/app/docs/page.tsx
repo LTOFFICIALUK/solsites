@@ -55,7 +55,7 @@ const DocsPage = () => {
                 <li>When ready, publish for 1 SOL to {`{name}.solsites.fun`}.</li>
               </ol>
               <div className="mt-6 flex gap-3">
-                <Link href="/templates"><Button>Browse templates</Button></Link>
+                <Link href="/templates"><Button className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white">Browse templates</Button></Link>
                 <Link href="/pricing"><Button variant="outline">View pricing</Button></Link>
               </div>
             </section>
