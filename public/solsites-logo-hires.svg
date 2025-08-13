@@ -1,0 +1,49 @@
+<svg width="800" height="240" viewBox="0 0 800 240" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#3B82F6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#06B6D4;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="textGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1F2937;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#374151;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Logo Icon -->
+  <g transform="translate(32, 32)">
+    <!-- Outer circle with gradient -->
+    <circle cx="88" cy="88" r="80" fill="url(#logoGradient)" opacity="0.1"/>
+    <circle cx="88" cy="88" r="72" fill="none" stroke="url(#logoGradient)" stroke-width="8"/>
+    
+    <!-- SOL symbol - stylized S -->
+    <path d="M48 64 C48 48, 64 40, 80 48 C96 56, 112 48, 128 64 C128 80, 112 88, 96 80 C80 72, 64 80, 48 64 Z" 
+          fill="url(#logoGradient)" opacity="0.8"/>
+    
+    <!-- Website/building blocks -->
+    <rect x="56" y="104" width="16" height="24" fill="url(#logoGradient)" rx="4"/>
+    <rect x="80" y="96" width="16" height="32" fill="url(#logoGradient)" rx="4"/>
+    <rect x="104" y="104" width="16" height="24" fill="url(#logoGradient)" rx="4"/>
+    
+    <!-- Connection lines -->
+    <line x1="64" y1="112" x2="72" y2="112" stroke="url(#logoGradient)" stroke-width="6" opacity="0.6"/>
+    <line x1="96" y1="112" x2="104" y2="112" stroke="url(#logoGradient)" stroke-width="6" opacity="0.6"/>
+  </g>
+  
+  <!-- Text -->
+  <g transform="translate(208, 60)">
+    <!-- SOL -->
+    <text x="0" y="80" font-family="Inter, system-ui, sans-serif" font-size="96" font-weight="700" fill="url(#textGradient)">
+      SOL
+    </text>
+    <!-- Sites -->
+    <text x="208" y="80" font-family="Inter, system-ui, sans-serif" font-size="96" font-weight="400" fill="url(#textGradient)">
+      Sites
+    </text>
+    <!-- Tagline -->
+    <text x="0" y="140" font-family="Inter, system-ui, sans-serif" font-size="40" font-weight="400" fill="#6B7280" opacity="0.8">
+      Build. Deploy. Succeed.
+    </text>
+  </g>
+</svg>

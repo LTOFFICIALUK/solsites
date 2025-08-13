@@ -3,6 +3,9 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --brand-primary: #3B82F6;
+  --brand-secondary: #1E40AF;
+  --brand-accent: #F59E0B;
 }
 
 @theme inline {
@@ -23,4 +26,11 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Utility CSS variables bridge that templates can rely on */
+.brand-vars {
+  --brand-primary: var(--brand-primary);
+  --brand-secondary: var(--brand-secondary);
+  --brand-accent: var(--brand-accent);
 }
