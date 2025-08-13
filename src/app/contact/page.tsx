@@ -35,17 +35,49 @@ const ContactPage = () => {
           <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-2xl p-6 md:p-8 shadow-sm">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-800">Name</label>
-                <input id="name" name="name" autoComplete="name" placeholder="Your full name" required value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full rounded-md border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-600 focus:border-blue-600" aria-label="Your name" />
+                <label htmlFor="name" className="mb-1 block text-sm font-medium text-gray-900">Name</label>
+                <input
+                  id="name"
+                  name="name"
+                  autoComplete="name"
+                  placeholder="Your full name"
+                  required
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 shadow-sm transition focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+                  aria-label="Your name"
+                />
               </div>
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-800">Email</label>
-                <input id="email" type="email" name="email" autoComplete="email" placeholder="you@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} className="mt-1 w-full rounded-md border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-600 focus:border-blue-600" aria-label="Your email address" />
+                <label htmlFor="email" className="mb-1 block text-sm font-medium text-gray-900">Email</label>
+                <input
+                  id="email"
+                  type="email"
+                  name="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  placeholder="you@example.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 shadow-sm transition focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+                  aria-label="Your email address"
+                />
               </div>
             </div>
             <div className="mt-6">
-              <label htmlFor="message" className="block text-sm font-medium text-gray-800">Message</label>
-              <textarea id="message" name="message" placeholder="How can we help?" required rows={6} value={message} onChange={(e) => setMessage(e.target.value)} className="mt-1 w-full rounded-md border border-gray-300 bg-white text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-blue-600 focus:border-blue-600" aria-label="Your message" />
+              <label htmlFor="message" className="mb-1 block text-sm font-medium text-gray-900">Message</label>
+              <textarea
+                id="message"
+                name="message"
+                placeholder="How can we help?"
+                required
+                rows={6}
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                className="mt-1 w-full resize-y rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 shadow-sm transition focus:border-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2"
+                aria-label="Your message"
+              />
             </div>
             <div className="mt-6">
               <Button type="submit" className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700">Send message</Button>
