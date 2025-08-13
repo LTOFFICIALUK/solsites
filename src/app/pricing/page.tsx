@@ -5,6 +5,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ArrowRight, Check, X } from 'lucide-react'
+import SiteHeader from '@/components/layout/SiteHeader'
+import SiteFooter from '@/components/layout/SiteFooter'
 
 const PricingPage = () => {
   const { user } = useAuth()
@@ -24,30 +26,7 @@ const PricingPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Navigation */}
-      <nav className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center">
-              <Link href="/" aria-label="SOL Sites Home" className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 rounded-md">
-                <img src="/solsites-logo.svg" alt="SOL Sites" className="h-14" />
-              </Link>
-            </div>
-            <div className="hidden md:flex items-center space-x-8">
-              <Link href="/templates" className="text-gray-600 hover:text-gray-900 transition-colors">Templates</Link>
-              <Link href="/" className="text-gray-600 hover:text-gray-900 transition-colors">Features</Link>
-              <Link href="/pricing" className="text-gray-900 font-medium">Pricing</Link>
-              <Button variant="outline" onClick={handleLogin}>Log in</Button>
-              <Button
-                className="bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
-                onClick={handleStartBuilding}
-              >
-                {user ? 'Dashboard' : 'Start Building'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <SiteHeader />
 
       {/* Hero */}
       <section className="relative overflow-hidden">
@@ -217,6 +196,8 @@ const PricingPage = () => {
           </div>
         </div>
       </section>
+
+      <SiteFooter />
     </div>
   )
 }
