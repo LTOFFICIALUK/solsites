@@ -55,7 +55,7 @@ const PricingPage = () => {
                 <span className="text-4xl font-bold text-gray-900">$0</span>
                 <span className="text-gray-500 mb-1">forever</span>
               </div>
-              <Button onClick={handleStartBuilding} className="w-full mt-6">
+              <Button onClick={handleStartBuilding} className="w-full mt-6 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-sm">
                 Start free
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>
