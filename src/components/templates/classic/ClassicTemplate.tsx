@@ -20,6 +20,7 @@ interface ClassicTemplateProps {
       primaryColor: string
       secondaryColor: string
       accentColor: string
+      backgroundColor?: string
       logo: string
       banner: string
     }
