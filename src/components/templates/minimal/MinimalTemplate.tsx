@@ -68,7 +68,7 @@ interface MinimalTemplateProps {
 
 export const MinimalTemplate = ({ projectData, visibility, onEdit }: MinimalTemplateProps) => {
   const { tokenInfo, branding, social, content } = projectData
-  const show = (key: keyof Nonnullable<MinimalTemplateProps['visibility']>) => visibility?.[key] ?? true
+  const show = (key: keyof NonNullable<MinimalTemplateProps['visibility']>) => visibility?.[key] ?? true
 
   return (
     <div className="minimal-template" style={{
