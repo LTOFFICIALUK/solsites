@@ -36,6 +36,7 @@ DROP POLICY IF EXISTS "Users can view analytics for their own projects" ON publi
 DROP POLICY IF EXISTS "Anyone can insert page views" ON public.page_views;
 DROP POLICY IF EXISTS "Users can view sessions for their own projects" ON public.sessions;
 DROP POLICY IF EXISTS "Anyone can insert sessions" ON public.sessions;
+DROP POLICY IF EXISTS "Anyone can update sessions" ON public.sessions;
 DROP POLICY IF EXISTS "Users can view unique visitors for their own projects" ON public.unique_visitors;
 DROP POLICY IF EXISTS "Anyone can insert unique visitors" ON public.unique_visitors;
 DROP POLICY IF EXISTS "Anyone can update unique visitors" ON public.unique_visitors;
@@ -174,6 +175,9 @@ CREATE POLICY "Users can view sessions for their own projects" ON public.session
 
 CREATE POLICY "Anyone can insert sessions" ON public.sessions
   FOR INSERT WITH CHECK (true);
+ 
+CREATE POLICY "Anyone can update sessions" ON public.sessions
+  FOR UPDATE USING (true);
 
 CREATE POLICY "Users can view unique visitors for their own projects" ON public.unique_visitors
   FOR SELECT USING (

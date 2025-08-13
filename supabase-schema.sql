@@ -327,6 +327,10 @@ CREATE POLICY "Users can view sessions for their own projects" ON public.session
 
 CREATE POLICY "Anyone can insert sessions" ON public.sessions
   FOR INSERT WITH CHECK (true);
+ 
+-- Allow updating sessions to record duration, bounce, and page count without auth
+CREATE POLICY "Anyone can update sessions" ON public.sessions
+  FOR UPDATE USING (true);
 
 CREATE POLICY "Users can view unique visitors for their own projects" ON public.unique_visitors
   FOR SELECT USING (

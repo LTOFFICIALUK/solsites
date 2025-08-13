@@ -3,6 +3,7 @@
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { trackPageView, getCurrentSessionId, endSession } from '@/lib/analytics'
 import { NeonTemplate } from '@/components/templates/neon/NeonTemplate'
 import { ClassicTemplate } from '@/components/templates/classic/ClassicTemplate'
 import { MinimalTemplate } from '@/components/templates/minimal/MinimalTemplate'
@@ -72,6 +73,7 @@ export default function ProjectPreviewPage() {
   const [projectData, setProjectData] = useState<ProjectData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [hasTrackedInitialView, setHasTrackedInitialView] = useState(false)
 
   // Load project data
   useEffect(() => {
@@ -116,6 +118,36 @@ export default function ProjectPreviewPage() {
       loadProject()
     }
   }, [projectId])
+
+  // Track page view when project data is loaded (editor preview)
+  useEffect(() => {
+    if (!projectId || !projectData || hasTrackedInitialView) return
+    const pageUrl = typeof window !== 'undefined' ? window.location.href : `/edit/${projectId}/preview`
+    trackPageView(projectId, pageUrl)
+    setHasTrackedInitialView(true)
+  }, [projectId, projectData, hasTrackedInitialView])
+
+  // End session on tab close/unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const sessionId = getCurrentSessionId()
+      if (sessionId) {
+        const end = async () => {
+          try { await endSession(sessionId) } catch {}
+        }
+        end()
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', handleBeforeUnload)
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeunload', handleBeforeUnload)
+      }
+    }
+  }, [])
 
   // Transform project data to template format
   const transformProjectData = (data: ProjectData) => {

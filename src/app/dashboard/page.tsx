@@ -839,8 +839,9 @@ export default function DashboardPage() {
                                       setDomainStatus(prev => ({ ...prev, [project.id]: 'invalid' }))
                                     }
                                   }}
-                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md bg-white text-gray-900 placeholder:text-gray-500 shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-purple-600"
                                   placeholder="your-project-name"
+                                  aria-label="New subdomain"
                                 />
                                 <span className="text-gray-500">.solsites.fun</span>
                                 <Button

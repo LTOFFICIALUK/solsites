@@ -72,6 +72,11 @@ export interface AnalyticsData {
   dailyViews: Array<{ date: string; views: number }>
 }
 
+// Session storage keys and settings
+const SESSION_ID_KEY = 'sol_sites_session_id'
+const SESSION_LAST_ACTIVITY_KEY = 'sol_sites_last_activity'
+const SESSION_TIMEOUT_MS = 30 * 60 * 1000 // 30 minutes
+
 // Generate a unique visitor ID
 export const generateVisitorId = (): string => {
   if (typeof window !== 'undefined') {
@@ -88,6 +93,38 @@ export const generateVisitorId = (): string => {
 // Generate a session ID
 export const generateSessionId = (): string => {
   return 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now()
+}
+
+// Retrieve or create a browser session id with inactivity timeout
+export const getOrCreateBrowserSessionId = (): string => {
+  if (typeof window === 'undefined') {
+    return generateSessionId()
+  }
+
+  const now = Date.now()
+  const storedSessionId = sessionStorage.getItem(SESSION_ID_KEY)
+  const lastActivityRaw = sessionStorage.getItem(SESSION_LAST_ACTIVITY_KEY)
+  const lastActivity = lastActivityRaw ? parseInt(lastActivityRaw, 10) : 0
+
+  if (!storedSessionId || !lastActivity || now - lastActivity > SESSION_TIMEOUT_MS) {
+    const newSessionId = generateSessionId()
+    sessionStorage.setItem(SESSION_ID_KEY, newSessionId)
+    sessionStorage.setItem(SESSION_LAST_ACTIVITY_KEY, String(now))
+    return newSessionId
+  }
+
+  sessionStorage.setItem(SESSION_LAST_ACTIVITY_KEY, String(now))
+  return storedSessionId
+}
+
+export const getCurrentSessionId = (): string | null => {
+  if (typeof window === 'undefined') return null
+  return sessionStorage.getItem(SESSION_ID_KEY)
+}
+
+const updateLastActivity = () => {
+  if (typeof window === 'undefined') return
+  sessionStorage.setItem(SESSION_LAST_ACTIVITY_KEY, String(Date.now()))
 }
 
 // Get device information
@@ -146,12 +183,12 @@ export const getUTMParams = () => {
 export const trackPageView = async (projectId: string, pageUrl: string) => {
   try {
     const visitorId = generateVisitorId()
-    const sessionId = generateSessionId()
+    const sessionId = getOrCreateBrowserSessionId()
     const deviceInfo = getDeviceInfo()
     const utmParams = getUTMParams()
 
     // Get or create session
-  const session = await getOrCreateSession(projectId, visitorId, sessionId, pageUrl)
+    const session = await getOrCreateSession(projectId, visitorId, sessionId, pageUrl)
 
     // Record page view
     const { data: pageView, error: pageViewError } = await supabase
@@ -175,7 +212,9 @@ export const trackPageView = async (projectId: string, pageUrl: string) => {
     await updateUniqueVisitor(projectId, visitorId, deviceInfo)
 
     // Update session page count
-    await updateSessionPageCount(sessionId)
+    await incrementSessionPageCount(sessionId)
+
+    updateLastActivity()
 
     return pageView
   } catch (error) {
@@ -245,13 +284,24 @@ const updateUniqueVisitor = async (projectId: string, visitorId: string, deviceI
 }
 
 // Update session page count
-const updateSessionPageCount = async (sessionId: string) => {
-  await supabase
-    .from('sessions')
-    .update({
-      page_views_count: supabase.rpc('increment', { row_id: 'id', table_name: 'sessions', column_name: 'page_views_count' })
-    })
-    .eq('session_id', sessionId)
+const incrementSessionPageCount = async (sessionId: string) => {
+  try {
+    const { data: session } = await supabase
+      .from('sessions')
+      .select('id, page_views_count')
+      .eq('session_id', sessionId)
+      .single()
+
+    if (!session) return
+
+    const currentCount = typeof session.page_views_count === 'number' ? session.page_views_count : 1
+    await supabase
+      .from('sessions')
+      .update({ page_views_count: currentCount + 1 })
+      .eq('session_id', sessionId)
+  } catch (err) {
+    console.error('Error incrementing session page count:', err)
+  }
 }
 
 // End a session
@@ -265,15 +315,22 @@ export const endSession = async (sessionId: string) => {
 
     if (session) {
       const duration = Math.floor((Date.now() - new Date(session.started_at).getTime()) / 1000)
-      
+      const exitPage = typeof window !== 'undefined' ? window.location.href : undefined
+
       await supabase
         .from('sessions')
         .update({
           ended_at: new Date().toISOString(),
           duration_seconds: duration,
-          is_bounce: session.page_views_count <= 1
+          is_bounce: (session.page_views_count || 1) <= 1,
+          exit_page: exitPage
         })
         .eq('session_id', sessionId)
+
+      if (typeof window !== 'undefined') {
+        sessionStorage.removeItem(SESSION_ID_KEY)
+        sessionStorage.removeItem(SESSION_LAST_ACTIVITY_KEY)
+      }
     }
   } catch (error) {
     console.error('Error ending session:', error)

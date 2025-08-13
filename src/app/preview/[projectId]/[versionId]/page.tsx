@@ -7,6 +7,7 @@ import { NeonTemplate } from '@/components/templates/neon/NeonTemplate'
 import { ClassicTemplate } from '@/components/templates/classic/ClassicTemplate'
 import { MinimalTemplate } from '@/components/templates/minimal/MinimalTemplate'
 import { getTemplateById } from '@/data/templates'
+import { trackPageView, getCurrentSessionId, endSession } from '@/lib/analytics'
 
 interface ProjectData {
   id: string
@@ -89,6 +90,7 @@ export default function ProductionPreviewPage() {
   const [sections, setSections] = useState<SectionData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [hasTrackedInitialView, setHasTrackedInitialView] = useState(false)
 
   // Load project data and sections
   useEffect(() => {
@@ -175,6 +177,36 @@ export default function ProductionPreviewPage() {
       loadProject()
     }
   }, [projectId, versionId])
+
+  // Track page view when project data is loaded
+  useEffect(() => {
+    if (!projectId || !projectData || hasTrackedInitialView) return
+    const pageUrl = typeof window !== 'undefined' ? window.location.href : `/preview/${projectId}/${versionId}`
+    trackPageView(projectId, pageUrl)
+    setHasTrackedInitialView(true)
+  }, [projectId, versionId, projectData, hasTrackedInitialView])
+
+  // End session on tab close/unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const sessionId = getCurrentSessionId()
+      if (sessionId) {
+        const end = async () => {
+          try { await endSession(sessionId) } catch {}
+        }
+        end()
+      }
+    }
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('beforeunload', handleBeforeUnload)
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('beforeunload', handleBeforeUnload)
+      }
+    }
+  }, [])
 
   // Transform project data to template format with sections
   const transformProjectData = (data: ProjectData) => {
