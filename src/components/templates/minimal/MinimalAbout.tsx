@@ -12,6 +12,10 @@ interface MinimalAboutProps {
       features: string[]
     }
   }
+  onEdit?: {
+    title?: (value: string) => void
+    content?: (value: string) => void
+  }
 }
 
 export function MinimalAbout({ primaryColor, secondaryColor, accentColor, content }: MinimalAboutProps) {

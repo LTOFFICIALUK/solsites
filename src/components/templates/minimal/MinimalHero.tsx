@@ -10,6 +10,11 @@ interface MinimalHeroProps {
   accentColor: string
   backgroundImage?: string
   logo?: string
+  onEdit?: {
+    title?: (value: string) => void
+    subtitle?: (value: string) => void
+    description?: (value: string) => void
+  }
 }
 
 export const MinimalHero = ({
@@ -21,7 +26,8 @@ export const MinimalHero = ({
   secondaryColor,
   accentColor,
   backgroundImage,
-  logo
+  logo,
+  onEdit
 }: MinimalHeroProps) => {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
