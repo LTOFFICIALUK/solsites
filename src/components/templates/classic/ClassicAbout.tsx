@@ -11,6 +11,10 @@ interface ClassicAboutProps {
   primaryColor: string
   secondaryColor: string
   accentColor: string
+  onEdit?: {
+    title?: (value: string) => void
+    content?: (value: string) => void
+  }
 }
 
 export const ClassicAbout = ({
