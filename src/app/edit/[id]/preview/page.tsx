@@ -102,8 +102,28 @@ export default function ProjectPreviewPage() {
 
         console.log('✅ Project loaded for preview:', project)
 
-        // Parse the project data
-        const parsedData = project.data as ProjectData
+        // Load sections and blocks data
+        const { data: sections, error: sectionsError } = await supabase
+          .from('user_project_sections')
+          .select(`
+            *,
+            blocks:user_project_blocks(*)
+          `)
+          .eq('project_id', projectId)
+          .order('order_index')
+
+        if (sectionsError) {
+          console.error('❌ Error loading sections:', sectionsError)
+        }
+
+        console.log('✅ Sections loaded for preview:', sections)
+
+        // Parse the project data and add sections
+        const parsedData = {
+          ...project.data,
+          sections: sections || []
+        } as ProjectData & { sections: any[] }
+        
         setProjectData(parsedData)
         
       } catch (err) {
@@ -150,65 +170,119 @@ export default function ProjectPreviewPage() {
   }, [])
 
   // Transform project data to template format
-  const transformProjectData = (data: ProjectData) => {
-    // Normalize team and roadmap shapes to what templates expect
-    const normalizedTeam = (data.content?.team?.members || [
-      { name: 'Alex Johnson', role: 'Founder & CEO', avatar: '👨‍💼', social: '@alexjohnson' },
-      { name: 'Sarah Chen', role: 'Lead Developer', avatar: '👩‍💻', social: '@sarahchen' },
-      { name: 'Mike Rodriguez', role: 'Marketing Director', avatar: '👨‍💼', social: '@mikerodriguez' }
-    ]).map((member: any) => ({
-      name: member.name,
-      role: member.role,
-      avatar: member.avatar,
-      social: typeof member.social === 'string' ? member.social : member.social?.twitter || ''
-    }))
+  const transformProjectData = (data: ProjectData & { sections?: any[] }) => {
+    // Extract content from sections and blocks (same logic as editor)
+    const extractBlockContent = (blockType: string) => {
+      const block = (data.sections || [])
+        .flatMap((s: any) => s?.blocks || [])
+        .find((b: any) => {
+          const t = (b?.type || b?.name || '').toString().toLowerCase()
+          return t.includes(blockType.toLowerCase())
+        })
+      return (block && (block as any).content) || {}
+    }
 
-    const normalizedRoadmap = ((data as any).content?.roadmap?.phases || [
-      { title: 'Phase 1: Launch', description: 'Initial token launch and community building', date: 'Q1 2024', completed: true },
-      { title: 'Phase 2: Development', description: 'Core features and platform development', date: 'Q2 2024', completed: false },
-      { title: 'Phase 3: Expansion', description: 'Partnerships and ecosystem growth', date: 'Q3 2024', completed: false }
-    ])
+    // Extract navbar/header content
+    const navbarBlock = (data.sections || [])
+      .flatMap((s: any) => s?.blocks || [])
+      .find((b: any) => {
+        const t = (b?.type || b?.name || '').toString().toLowerCase()
+        return t.includes('nav') || t.includes('header')
+      })
+    const navbarContent = (navbarBlock && (navbarBlock as any).content) || {}
+    
+    // Extract header section settings if available
+    const headerSection = (data.sections || []).find((s: any) => {
+      const t = (s?.type || s?.name || '').toString().toLowerCase()
+      return t.includes('nav') || t.includes('header')
+    })
+    const headerSettings = (headerSection && (headerSection as any).settings) || {}
+
+    // Extract hero content with comprehensive data
+    const heroContent = extractBlockContent('hero')
+    
+    // Extract other section content
+    const aboutContent = extractBlockContent('about')
+    const tokenomicsContent = extractBlockContent('tokenomics')
+    const teamContent = extractBlockContent('team')
+    const roadmapContent = extractBlockContent('roadmap')
+    const footerContent = extractBlockContent('footer')
 
     return {
       tokenInfo: {
         name: data.name || 'MEME Token',
-        symbol: (data as any).tokenInfo?.symbol || 'MEME',
+        symbol: heroContent.tokenSymbol || (data as any).tokenInfo?.symbol || 'MEME',
         contractAddress: (data as any).tokenInfo?.contractAddress || '0x1234567890abcdef1234567890abcdef12345678',
-        description: data.content?.hero?.description || 'Join the revolution with our innovative meme coin that combines humor, community, and cutting-edge blockchain technology.'
+        description: heroContent.description || data.content?.hero?.description || 'Join the revolution with our innovative meme coin that combines humor, community, and cutting-edge blockchain technology.'
       },
       branding: {
-        primaryColor: data.colors?.primary || (getTemplateById(data.template as any) as any)?.colors?.primary || '#FF6B6B',
-        secondaryColor: data.colors?.secondary || (getTemplateById(data.template as any) as any)?.colors?.secondary || '#4ECDC4',
-        accentColor: data.colors?.accent || (getTemplateById(data.template as any) as any)?.colors?.accent || '#45B7D1',
-        logo: (data as any).branding?.logo || '',
+        primaryColor: heroContent.primaryColor || data.colors?.primary || (getTemplateById(data.template as any) as any)?.colors?.primary || '#FF6B6B',
+        secondaryColor: heroContent.secondaryColor || data.colors?.secondary || (getTemplateById(data.template as any) as any)?.colors?.secondary || '#4ECDC4',
+        accentColor: heroContent.accentColor || data.colors?.accent || (getTemplateById(data.template as any) as any)?.colors?.accent || '#45B7D1',
+        logo: headerSettings.logoUrl || navbarContent.logoUrl || (data as any).branding?.logo || '',
         banner: (data as any).branding?.banner || ''
       },
       social: {
-        twitter: data.content?.social?.twitter || 'https://twitter.com/memecoin',
-        telegram: data.content?.social?.telegram || 'https://t.me/memecoin',
-        discord: (data.content as any)?.social?.discord || 'https://discord.gg/memetoken',
-        website: data.content?.social?.website || 'https://memetoken.com'
+        twitter: (headerSettings.social || {}).twitter || (navbarContent.social || {}).twitter || data.content?.social?.twitter || 'https://twitter.com/memecoin',
+        telegram: (headerSettings.social || {}).telegram || (navbarContent.social || {}).telegram || data.content?.social?.telegram || 'https://t.me/memecoin',
+        discord: (headerSettings.social || {}).discord || (navbarContent.social || {}).discord || (data.content as any)?.social?.discord || 'https://discord.gg/memetoken',
+        website: (headerSettings.social || {}).website || (navbarContent.social || {}).website || data.content?.social?.website || 'https://memetoken.com'
+      },
+      header: {
+        navItems: headerSettings.navItems || navbarContent.navItems || data.content?.header?.navItems || [
+          { label: 'About', href: '#about' },
+          { label: 'Tokenomics', href: '#tokenomics' },
+          { label: 'Roadmap', href: '#roadmap' },
+          { label: 'Team', href: '#team' }
+        ],
+        cta: headerSettings.cta || navbarContent.cta || data.content?.header?.cta || { text: 'Buy Now', href: undefined },
+        colors: {
+          primary: navbarContent.primaryColor || data.colors?.primary || (getTemplateById(data.template as any) as any)?.colors?.primary,
+          secondary: navbarContent.secondaryColor || data.colors?.secondary || (getTemplateById(data.template as any) as any)?.colors?.secondary
+        },
+        displayName: navbarContent.displayName || (data as any).tokenInfo?.symbol
       },
       content: {
         hero: {
-          title: data.content?.hero?.title || 'Welcome to the Future',
-          subtitle: data.content?.hero?.subtitle || 'The Next Big Thing in Crypto',
-          description: data.content?.hero?.description || 'Join the revolution with our innovative meme coin that combines humor, community, and cutting-edge blockchain technology.'
+          title: heroContent.title || 'Welcome to the Future',
+          subtitle: heroContent.subtitle || 'The Next Big Thing in Crypto',
+          description: heroContent.description || 'Join the revolution with our innovative meme coin that combines humor, community, and cutting-edge blockchain technology.',
+          // Comprehensive hero content
+          tokenSymbol: heroContent.tokenSymbol || 'MEME',
+          showTokenPill: heroContent.showTokenPill !== false,
+          showStats: heroContent.showStats !== false,
+          stats: heroContent.stats || [
+            { value: '10K+', label: 'Holders', color: 'primary' },
+            { value: '$2.5M', label: 'Market Cap', color: 'secondary' },
+            { value: '$500K', label: '24h Volume', color: 'accent' }
+          ],
+          showPrimaryButton: heroContent.showPrimaryButton !== false,
+          primaryButton: heroContent.primaryButton || { text: 'Buy Now', href: '' },
+          showSecondaryButton: heroContent.showSecondaryButton !== false,
+          secondaryButton: heroContent.secondaryButton || { text: 'Watch Video', href: '' },
+          showTokenVisual: heroContent.showTokenVisual !== false,
+          tokenLogo: heroContent.tokenLogo || '',
+          tokenPrice: heroContent.tokenPrice || '$0.0025',
+          priceChange: heroContent.priceChange || '+15.2%',
+          circulatingSupply: heroContent.circulatingSupply || '800M',
+          totalSupply: heroContent.totalSupply || '1B',
+          showScrollIndicator: heroContent.showScrollIndicator !== false,
+          scrollText: heroContent.scrollText || 'Scroll to explore'
         },
         about: {
-          title: data.content?.about?.title || 'About Our Project',
-          content: data.content?.about?.description || 'We are building something special that will change the crypto landscape forever.'
+          title: aboutContent.title || data.content?.about?.title || 'About Our Project',
+          content: aboutContent.description || data.content?.about?.description || 'We are building something special that will change the crypto landscape forever.'
         },
-        features: data.content?.about?.features || [
+        features: aboutContent.features || data.content?.about?.features || [
           { title: 'Community Driven', description: 'Built by the community, for the community', icon: '👥' },
           { title: 'Transparent', description: 'All transactions and decisions are public', icon: '🔍' },
           { title: 'Innovative', description: 'Pushing the boundaries of what is possible', icon: '💡' }
         ],
         tokenomics: {
-          title: data.content?.tokenomics?.title || 'Tokenomics',
-          description: data.content?.tokenomics?.description || 'Fair and transparent token distribution',
-          totalSupply: data.content?.tokenomics?.totalSupply || '1,000,000,000',
-          distribution: data.content?.tokenomics?.distribution || [
+          title: tokenomicsContent.title || data.content?.tokenomics?.title || 'Tokenomics',
+          description: tokenomicsContent.description || data.content?.tokenomics?.description || 'Fair and transparent token distribution',
+          totalSupply: tokenomicsContent.totalSupply || data.content?.tokenomics?.totalSupply || '1,000,000,000',
+          distribution: tokenomicsContent.distribution || data.content?.tokenomics?.distribution || [
             { name: 'Liquidity', percentage: 40, color: '#FF6B6B' },
             { name: 'Community', percentage: 30, color: '#4ECDC4' },
             { name: 'Team', percentage: 15, color: '#45B7D1' },
@@ -216,8 +290,16 @@ export default function ProjectPreviewPage() {
             { name: 'Development', percentage: 5, color: '#FFEAA7' }
           ]
         },
-        team: normalizedTeam,
-        roadmap: normalizedRoadmap
+        team: teamContent.members || data.content?.team?.members || [
+          { name: 'Alex Johnson', role: 'Founder & CEO', avatar: '👨‍💼', social: '@alexjohnson' },
+          { name: 'Sarah Chen', role: 'Lead Developer', avatar: '👩‍💻', social: '@sarahchen' },
+          { name: 'Mike Rodriguez', role: 'Marketing Director', avatar: '👨‍💼', social: '@mikerodriguez' }
+        ],
+        roadmap: roadmapContent.phases || (data as any).content?.roadmap?.phases || [
+          { title: 'Phase 1: Launch', description: 'Initial token launch and community building', date: 'Q1 2024', completed: true },
+          { title: 'Phase 2: Development', description: 'Core features and platform development', date: 'Q2 2024', completed: false },
+          { title: 'Phase 3: Expansion', description: 'Partnerships and ecosystem growth', date: 'Q3 2024', completed: false }
+        ]
       }
     }
   }

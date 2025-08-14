@@ -1,7 +1,9 @@
 import { Twitter } from 'lucide-react'
 
 interface ClassicTeamProps {
-  team: Array<{
+  title: string
+  description: string
+  members: Array<{
     name: string
     role: string
     avatar: string
@@ -12,7 +14,7 @@ interface ClassicTeamProps {
   accentColor: string
 }
 
-export const ClassicTeam = ({ team, primaryColor, secondaryColor, accentColor }: ClassicTeamProps) => {
+export const ClassicTeam = ({ title, description, members, primaryColor, secondaryColor, accentColor }: ClassicTeamProps) => {
   return (
     <section className="py-20 bg-gray-50" id="team">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -21,15 +23,15 @@ export const ClassicTeam = ({ team, primaryColor, secondaryColor, accentColor }:
             className="text-4xl md:text-5xl font-bold mb-6"
             style={{ color: primaryColor }}
           >
-            Our Team
+            {title}
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Meet the passionate team behind our success
+            {description}
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {team.map((member, index) => (
+          {members.map((member, index) => (
             <div key={index} className="text-center p-8 rounded-2xl bg-white classic-hover classic-shadow">
               <div 
                 className="w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center text-2xl font-bold text-white"

@@ -30,33 +30,62 @@ interface ClassicTemplateProps {
       discord?: string
       website?: string
     }
+    header?: {
+      navItems?: Array<{ label: string; href: string }>
+      cta?: { text: string; href?: string }
+    }
     content: {
       hero: {
         title: string
         subtitle: string
         description: string
+        // Comprehensive hero content
+        tokenSymbol?: string
+        showTokenPill?: boolean
+        showStats?: boolean
+        stats?: Array<{ value: string; label: string; color: string }>
+        showPrimaryButton?: boolean
+        primaryButton?: { text: string; href: string }
+        showSecondaryButton?: boolean
+        secondaryButton?: { text: string; href: string }
+        showTokenVisual?: boolean
+        tokenLogo?: string
+        tokenPrice?: string
+        priceChange?: string
+        circulatingSupply?: string
+        totalSupply?: string
+        showScrollIndicator?: boolean
+        scrollText?: string
       }
-      about: {
-        title: string
-        content: string
-      }
-      features: Array<{
+                      about: {
+          title: string
+          description: string
+          features: Array<{
+            title: string
+            description: string
+            icon: string
+          }>
+        }
+      roadmap: {
         title: string
         description: string
-        icon: string
-      }>
-      roadmap: Array<{
+        phases: Array<{
+          title: string
+          description: string
+          date: string
+          completed: boolean
+        }>
+      }
+      team: {
         title: string
         description: string
-        date: string
-        completed: boolean
-      }>
-      team: Array<{
-        name: string
-        role: string
-        avatar: string
-        social?: string
-      }>
+        members: Array<{
+          name: string
+          role: string
+          avatar: string
+          social?: string
+        }>
+      }
     }
   }
   visibility?: Partial<Record<'navbar' | 'hero' | 'about' | 'tokenomics' | 'team' | 'roadmap' | 'footer', boolean>>
@@ -110,9 +139,14 @@ export const ClassicTemplate = ({ projectData, visibility, onEdit }: ClassicTemp
       {show('navbar') && (
       <ClassicNavbar 
         tokenSymbol={tokenInfo.symbol}
-        primaryColor={branding.primaryColor}
-        secondaryColor={branding.secondaryColor}
+        displayName={projectData?.header?.displayName}
+        primaryColor={projectData?.header?.colors?.primary || branding.primaryColor}
+        secondaryColor={projectData?.header?.colors?.secondary || branding.secondaryColor}
+        logoUrl={branding.logo}
+        navItems={projectData?.header?.navItems}
+        cta={projectData?.header?.cta}
         social={social}
+        colors={projectData?.header?.colors}
       />)}
 
       {/* Hero Section */}
@@ -121,12 +155,28 @@ export const ClassicTemplate = ({ projectData, visibility, onEdit }: ClassicTemp
         title={content.hero.title}
         subtitle={content.hero.subtitle}
         description={content.hero.description}
-        tokenSymbol={tokenInfo.symbol}
+        tokenSymbol={content.hero.tokenSymbol || tokenInfo.symbol}
         primaryColor={branding.primaryColor}
         secondaryColor={branding.secondaryColor}
         accentColor={branding.accentColor}
         backgroundImage={branding.banner}
         logo={branding.logo}
+        // Comprehensive hero content
+        showTokenPill={content.hero.showTokenPill}
+        showStats={content.hero.showStats}
+        stats={content.hero.stats}
+        showPrimaryButton={content.hero.showPrimaryButton}
+        primaryButton={content.hero.primaryButton}
+        showSecondaryButton={content.hero.showSecondaryButton}
+        secondaryButton={content.hero.secondaryButton}
+        showTokenVisual={content.hero.showTokenVisual}
+        tokenLogo={content.hero.tokenLogo}
+        tokenPrice={content.hero.tokenPrice}
+        priceChange={content.hero.priceChange}
+        circulatingSupply={content.hero.circulatingSupply}
+        totalSupply={content.hero.totalSupply}
+        showScrollIndicator={content.hero.showScrollIndicator}
+        scrollText={content.hero.scrollText}
         onEdit={onEdit?.hero as any}
       />)}
 
@@ -134,8 +184,8 @@ export const ClassicTemplate = ({ projectData, visibility, onEdit }: ClassicTemp
       {show('about') && (
       <ClassicAbout
         title={content.about.title}
-        description={content.about.content}
-        features={content.features}
+        description={content.about.description}
+        features={content.about.features}
         primaryColor={branding.primaryColor}
         secondaryColor={branding.secondaryColor}
         accentColor={branding.accentColor}
@@ -145,7 +195,10 @@ export const ClassicTemplate = ({ projectData, visibility, onEdit }: ClassicTemp
       {/* Tokenomics Section */}
       {show('tokenomics') && (
       <ClassicTokenomics
-        tokenSymbol={tokenInfo.symbol}
+        title={content.tokenomics?.title || 'Tokenomics'}
+        description={content.tokenomics?.description || 'Fair and transparent token distribution'}
+        totalSupply={content.tokenomics?.totalSupply || '1,000,000,000'}
+        distribution={content.tokenomics?.distribution || []}
         primaryColor={branding.primaryColor}
         secondaryColor={branding.secondaryColor}
         accentColor={branding.accentColor}
@@ -154,7 +207,9 @@ export const ClassicTemplate = ({ projectData, visibility, onEdit }: ClassicTemp
       {/* Roadmap Section */}
       {show('roadmap') && (
       <ClassicRoadmap
-        roadmap={content.roadmap}
+        title="Roadmap"
+        description="Our journey to success"
+        phases={content.roadmap || []}
         primaryColor={branding.primaryColor}
         secondaryColor={branding.secondaryColor}
         accentColor={branding.accentColor}
@@ -163,7 +218,9 @@ export const ClassicTemplate = ({ projectData, visibility, onEdit }: ClassicTemp
       {/* Team Section */}
       {show('team') && (
       <ClassicTeam
-        team={content.team}
+        title="Our Team"
+        description="Meet the brilliant minds behind our project"
+        members={content.team || []}
         primaryColor={branding.primaryColor}
         secondaryColor={branding.secondaryColor}
         accentColor={branding.accentColor}

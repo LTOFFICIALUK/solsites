@@ -15,6 +15,26 @@ interface ProjectData {
     secondary: string
     accent: string
   }
+  social?: {
+    twitter?: string
+    telegram?: string
+    discord?: string
+    website?: string
+  }
+  branding?: {
+    logo?: string
+    banner?: string
+  }
+  header?: {
+    navItems?: Array<{
+      label: string
+      href: string
+    }>
+    cta?: {
+      text: string
+      href?: string
+    }
+  }
   content: {
     hero: {
       title: string
@@ -52,7 +72,7 @@ interface ProjectData {
         }
       }>
     }
-    social: {
+    social?: {
       twitter?: string
       telegram?: string
       website?: string
@@ -95,9 +115,11 @@ export default function EditPage() {
         }
 
         console.log('✅ Project loaded:', project)
+        console.log('✅ Project data field:', project.data)
 
         // Parse the project data
         const parsedData = project.data as ProjectData
+        console.log('✅ Parsed project data:', parsedData)
         
         // Set the template
         const projectTemplate = getTemplateById(parsedData.template)
@@ -121,13 +143,52 @@ export default function EditPage() {
     }
   }, [projectId])
 
-  const handleContentChange = (newData: ProjectData) => {
+  const handleContentChange = async (newData: ProjectData) => {
+    console.log('🔄 handleContentChange called with:', newData)
     setProjectData(newData)
+    
+    // Save to database
+    try {
+      console.log('💾 Saving to database:', { name: newData.name, data: newData })
+      const { error } = await supabase
+        .from('user_projects')
+        .update({ 
+          name: newData.name,
+          data: newData 
+        })
+        .eq('id', projectId)
+      
+      if (error) {
+        console.error('❌ Error saving project data:', error)
+      } else {
+        console.log('✅ Project data saved to database')
+      }
+    } catch (error) {
+      console.error('❌ Error saving project data:', error)
+    }
   }
 
-  const handleSave = () => {
-    console.log('✅ Project saved successfully!')
-    // You could add a toast notification here
+  const handleSave = async () => {
+    if (!projectData) return
+    
+    try {
+      const { error } = await supabase
+        .from('user_projects')
+        .update({ 
+          name: projectData.name,
+          data: projectData 
+        })
+        .eq('id', projectId)
+      
+      if (error) {
+        console.error('❌ Error saving project:', error)
+      } else {
+        console.log('✅ Project saved successfully!')
+        // You could add a toast notification here
+      }
+    } catch (error) {
+      console.error('❌ Error saving project:', error)
+    }
   }
 
   if (isLoading) {

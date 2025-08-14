@@ -173,6 +173,15 @@ export async function createProjectFromTemplate(
       discord: 'https://discord.gg/memetoken',
       website: 'https://memetoken.com'
     },
+    header: {
+      navItems: [
+        { label: 'About', href: '#about' },
+        { label: 'Tokenomics', href: '#tokenomics' },
+        { label: 'Roadmap', href: '#roadmap' },
+        { label: 'Team', href: '#team' }
+      ],
+      cta: { text: 'Buy Now' }
+    },
     content: {
       hero: {
         title: 'Welcome to the Future',

@@ -1,5 +1,8 @@
 "use client"
 
+// Global creation lock to prevent multiple simultaneous project creations
+let globalProjectCreationInProgress = false
+
 import { useState, useCallback, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/AuthContext'
@@ -20,6 +23,8 @@ interface TemplateEditorProps {
 }
 
 export function TemplateEditor({ projectData, template, onContentChange, onSave }: TemplateEditorProps) {
+  const [instanceId] = useState(() => `editor-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
+  console.log(`🎯 TemplateEditor instance created: ${instanceId}`)
   const { user } = useAuth()
   const [sections, setSections] = useState<any[]>([])
   const [selectedSection, setSelectedSection] = useState<string | null>(null)
@@ -31,6 +36,17 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
   const [dbError, setDbError] = useState<string | null>(null)
   // Track the actual project id persisted in DB
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null)
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [lastSavedData, setLastSavedData] = useState<any>(null)
+  const [isCreatingProject, setIsCreatingProject] = useState(false)
+  const [creationAttemptId] = useState(() => `attempt-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`)
+  
+  // Project selection modal state
+  const [showProjectSelector, setShowProjectSelector] = useState(false)
+  const [existingProjects, setExistingProjects] = useState<any[]>([])
+  const [isLoadingProjects, setIsLoadingProjects] = useState(false)
+  // Mobile-only: which pane is visible (stacked layout). Desktop shows all three.
+  const [activePane, setActivePane] = useState<'structure' | 'preview' | 'settings'>('preview')
 
   // Check if required database tables exist
   const checkDatabaseSchema = async () => {
@@ -163,34 +179,89 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
         }
       }
       
-      if (!projectId && user) {
-        console.log('🔄 Creating new project in database (no explicit id)...')
-        const baseSlug = projectData.slug || projectData.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
-        const uniqueSlug = `${baseSlug}-${Date.now()}`
-        const { data: created, error: createProjectError } = await supabase
+      // Check for existing projects first if we don't have a projectId and no currentProjectId
+      if (!projectId && !currentProjectId && user && !isCreatingProject && !globalProjectCreationInProgress) {
+        // Check if user already has projects for this template
+        console.log('🔍 Checking for existing projects...')
+        setIsLoadingProjects(true)
+        const { data: existingProjectsData, error: checkError } = await supabase
           .from('user_projects')
-          .insert({
-            user_id: user.id,
-            template_id: templateData.id,
-            name: projectData.name,
-            slug: uniqueSlug,
-            data: { ...projectData }
-          })
-          .select('id')
-          .single()
-        if (createProjectError) {
-          console.error('❌ Error creating project:', createProjectError)
-          return
+          .select('id, name, created_at, updated_at')
+          .eq('user_id', user.id)
+          .eq('template_id', templateData.id)
+          .order('updated_at', { ascending: false })
+        
+        if (checkError) {
+          console.error('❌ Error checking existing projects:', checkError)
+        } else if (existingProjectsData && existingProjectsData.length > 0 && !currentProjectId) {
+          // Show project selector modal only if we don't already have a currentProjectId
+          console.log('✅ Found existing projects:', existingProjectsData.length)
+          setExistingProjects(existingProjectsData)
+          setShowProjectSelector(true)
+          setIsLoadingProjects(false)
+          return // Wait for user selection
         }
-        projectId = created.id
-        setCurrentProjectId(projectId)
-        onContentChange({ ...projectData, id: projectId })
-        console.log('✅ Project created with id:', projectId)
-      }
-      
-      if (!projectId) {
-        console.warn('⚠️ No project id available; proceeding in local-only mode')
-        // Proceed without DB mutations
+        
+        setIsLoadingProjects(false)
+        // No existing project found, create new one
+        console.log('🔄 No existing project found, creating new one...')
+        console.log('🔄 Creating new project in TemplateEditor...', { 
+          user: user.id, 
+          template: templateData.id, 
+          name: projectData.name,
+          currentProjectId: currentProjectId,
+          isCreatingProject: isCreatingProject,
+          projectId: projectId,
+          creationAttemptId: creationAttemptId,
+          instanceId: instanceId,
+          stack: new Error().stack // Add stack trace to see where this is called from
+        })
+        
+        // Check if we already have a currentProjectId to prevent duplicates
+        if (currentProjectId) {
+          console.log('⚠️ Already have currentProjectId, skipping creation:', currentProjectId)
+          projectId = currentProjectId
+        } else {
+          globalProjectCreationInProgress = true
+          setIsCreatingProject(true)
+          try {
+            const baseSlug = projectData.slug || projectData.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
+            const uniqueSlug = `${baseSlug}-${Date.now()}`
+            console.log('🔄 About to insert project with slug:', uniqueSlug)
+            const { data: created, error: createProjectError } = await supabase
+              .from('user_projects')
+              .insert({
+                user_id: user.id,
+                template_id: templateData.id,
+                name: projectData.name,
+                slug: uniqueSlug,
+                data: { ...projectData, id: undefined } // Remove the placeholder id
+              })
+              .select('id')
+              .single()
+            
+            if (createProjectError) {
+              console.error('❌ Error creating project:', createProjectError)
+              // Continue in local-only mode if creation fails
+            } else {
+              projectId = created.id
+              setCurrentProjectId(projectId)
+              onContentChange({ ...projectData, id: projectId })
+              console.log('✅ Project created with id:', projectId)
+            }
+          } finally {
+            setIsCreatingProject(false)
+            globalProjectCreationInProgress = false
+          }
+        }
+      } else {
+        console.log('🚫 Skipping project creation:', {
+          hasProjectId: !!projectId,
+          hasUser: !!user,
+          isCreatingProject: isCreatingProject,
+          globalCreationInProgress: globalProjectCreationInProgress,
+          currentProjectId: currentProjectId
+        })
       }
       
       // First, try to load user-specific project sections
@@ -228,8 +299,35 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
         console.log('✅ Loaded user-specific sections:', userSectionsData)
         sectionsData = userSectionsData.map((section: any) => ({
           ...section,
-          blocks: section.user_project_blocks?.sort((a: any, b: any) => a.order_index - b.order_index) || []
+          blocks: section.user_project_blocks?.sort((a: any, b: any) => a.order_index - b.order_index).map((block: any) => ({
+            ...block,
+            // Ensure content is parsed as object if it's a string
+            content: typeof block.content === 'string' ? (() => {
+              try {
+                return JSON.parse(block.content)
+              } catch (e) {
+                console.warn('Failed to parse block content as JSON:', block.content, e)
+                return {}
+              }
+            })() : (block.content || {})
+          })) || []
         }))
+        console.log('🔍 Processed user-specific sections data:', sectionsData)
+        if (sectionsData) {
+          sectionsData.forEach((section: any) => {
+            if (section.blocks) {
+              section.blocks.forEach((block: any) => {
+                console.log('🔍 User-specific block:', { 
+                  blockId: block.id, 
+                  blockName: block.name, 
+                  blockType: block.type, 
+                  content: block.content,
+                  contentType: typeof block.content 
+                })
+              })
+            }
+          })
+        }
       } else {
         // Fallback to template sections and create user-specific copies
         console.log('🔄 No user-specific sections found, loading template sections...')
@@ -264,7 +362,12 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
             { id: 'footer', name: 'Footer', type: 'footer', order_index: 2, is_enabled: true, settings: {}, blocks: [] },
           ] as any
           setSections(localSections)
-          setSelectedSection(localSections[0].id)
+          setSelectedSection('project')
+          
+          // Initialize last saved data for fallback
+          if (projectData && !lastSavedData) {
+            setLastSavedData(projectData)
+          }
           return
         }
         
@@ -309,7 +412,14 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
                   order_index: b.order_index,
                   is_enabled: b.is_enabled,
                   settings: b.settings,
-                  content: b.content
+                  content: typeof b.content === 'string' ? (() => {
+                    try {
+                      return JSON.parse(b.content)
+                    } catch (e) {
+                      console.warn('Failed to parse block content as JSON:', b.content, e)
+                      return {}
+                    }
+                  })() : (b.content || {})
                 }))
               })) || []
             }
@@ -338,6 +448,23 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
             .eq('project_id', projectId)
             .order('order_index')
 
+          console.log('🔍 Loaded seeded user sections from database:', seededUserSections)
+          if (seededUserSections) {
+            seededUserSections.forEach((section: any) => {
+              if (section.user_project_blocks) {
+                section.user_project_blocks.forEach((block: any) => {
+                  console.log('🔍 Block from database:', { 
+                    blockId: block.id, 
+                    blockName: block.name, 
+                    blockType: block.type, 
+                    content: block.content,
+                    contentType: typeof block.content 
+                  })
+                })
+              }
+            })
+          }
+
           sectionsData = (seededUserSections || []).map((section: {
             id: string
             name: string
@@ -348,7 +475,18 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
             user_project_blocks?: Array<any>
           }) => ({
             ...section,
-            blocks: section.user_project_blocks?.sort((a: any, b: any) => a.order_index - b.order_index) || []
+            blocks: section.user_project_blocks?.sort((a: any, b: any) => a.order_index - b.order_index).map((block: any) => ({
+              ...block,
+              // Ensure content is parsed as object if it's a string
+              content: typeof block.content === 'string' ? (() => {
+                try {
+                  return JSON.parse(block.content)
+                } catch (e) {
+                  console.warn('Failed to parse block content as JSON:', block.content, e)
+                  return {}
+                }
+              })() : (block.content || {})
+            })) || []
           }))
         } else {
           // Local-only fallback if no projectId (e.g., unauthenticated or RLS blocked)
@@ -374,23 +512,76 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
               order_index: b.order_index,
               is_enabled: b.is_enabled,
               settings: b.settings,
-              content: b.content
+              content: typeof b.content === 'string' ? (() => {
+                try {
+                  return JSON.parse(b.content)
+                } catch (e) {
+                  console.warn('Failed to parse block content as JSON:', b.content, e)
+                  return {}
+                }
+              })() : (b.content || {})
             }))
           })) || []
         }
       }
       
-      // Transform sections data
-      const transformedSections = sectionsData?.map((section: any) => ({
-        ...section,
-        blocks: section.blocks || []
-      })) || []
+      // Transform sections data and normalize header/navigation blocks
+      console.log('🔄 Transforming sections data:', sectionsData)
+      const transformedSections = sectionsData?.map((section: any) => {
+        const normalizedBlocks = (section.blocks || []).map((block: any) => {
+          const rawType = ((block?.type || block?.name || '') as string).toLowerCase()
+          const isHeader = rawType.includes('nav') || rawType.includes('header')
+          const normalizedType = isHeader ? 'navbar' : (block?.type || rawType)
+          const defaultNavbarContent = {
+            logoUrl: '',
+            displayName: '',
+            navItems: [
+              { label: 'About', href: '#about' },
+              { label: 'Tokenomics', href: '#tokenomics' },
+              { label: 'Roadmap', href: '#roadmap' },
+              { label: 'Team', href: '#team' }
+            ],
+            cta: { text: 'Buy Now' },
+            social: {
+              twitter: 'https://twitter.com/memecoin',
+              telegram: 'https://t.me/memecoin',
+              discord: 'https://discord.gg/memetoken',
+              website: 'https://memetoken.com'
+            },
+            primaryColor: template?.colors?.primary,
+            secondaryColor: template?.colors?.secondary
+          }
+          
+          const finalContent = isHeader ? { ...defaultNavbarContent, ...(block?.content || {}) } : (block?.content || {})
+          console.log('🔍 Block content transformation:', { 
+            blockId: block.id, 
+            blockType: block.type, 
+            isHeader, 
+            originalContent: block?.content, 
+            originalContentType: typeof block?.content,
+            finalContent 
+          })
+          
+          return {
+            ...block,
+            type: normalizedType,
+            content: finalContent
+          }
+        })
+        return { ...section, blocks: normalizedBlocks }
+      }) || []
       
+      console.log('✅ Final transformed sections to be set:', transformedSections)
       setSections(transformedSections)
       
-      // Set first section as selected by default
+      // Set project section as selected by default
       if (transformedSections.length > 0 && !selectedSection) {
-        setSelectedSection(transformedSections[0].id)
+        setSelectedSection('project')
+      }
+      
+      // Initialize last saved data after sections are loaded
+      if (projectData && !lastSavedData) {
+        setLastSavedData(projectData)
       }
       
     } catch (error) {
@@ -414,7 +605,22 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
               order_index: 0,
               is_enabled: true,
               settings: {},
-              content: { logo: '🚀', menuItems: ['Home', 'About', 'Tokenomics', 'Team', 'Roadmap'] }
+              content: {
+                logoUrl: '',
+                navItems: [
+                  { label: 'About', href: '#about' },
+                  { label: 'Tokenomics', href: '#tokenomics' },
+                  { label: 'Roadmap', href: '#roadmap' },
+                  { label: 'Team', href: '#team' }
+                ],
+                cta: { text: 'Buy Now' },
+                social: {
+                  twitter: 'https://twitter.com/memecoin',
+                  telegram: 'https://t.me/memecoin',
+                  discord: 'https://discord.gg/memetoken',
+                  website: 'https://memetoken.com'
+                }
+              }
             }
           ]
         },
@@ -541,8 +747,12 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
       ]
       
       setSections(defaultSections)
-      if (defaultSections.length > 0) {
-        setSelectedSection(defaultSections[0].id)
+      // Default to 'project' section instead of first section
+      setSelectedSection('project')
+      
+      // Initialize last saved data for default sections
+      if (projectData && !lastSavedData) {
+        setLastSavedData(projectData)
       }
     } finally {
       setIsLoading(false)
@@ -628,72 +838,26 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
       }
 
       if (projectId) {
-        // Check if project already exists
-        const { data: existingProject, error: checkError } = await supabase
-          .from('user_projects')
-          .select('id')
-          .eq('id', projectId)
-          .maybeSingle()
-
-        if (checkError) {
-          console.error('❌ Error checking existing project:', checkError)
-          throw checkError
-        }
-
-        if (existingProject) {
-          // Update existing project
-          const { error } = await supabase
-            .from('user_projects')
-            .update({
-              name: projectData.name,
-              data: { ...projectData, id: projectId },
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', projectId)
-          
-          if (error) throw error
-        } else {
-          // Insert as new without specifying id; capture id
-          const baseSlug = projectData.slug || projectData.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
-          const uniqueSlug = `${baseSlug}-${Date.now()}`
-          const { data: created, error } = await supabase
-            .from('user_projects')
-            .insert({
-              user_id: user.id,
-              template_id: templateData.id,
-              name: projectData.name,
-              slug: uniqueSlug,
-              data: { ...projectData }
-            })
-            .select('id')
-            .single()
-          if (error) throw error
-          projectId = created.id
-          setCurrentProjectId(projectId)
-          onContentChange({ ...projectData, id: projectId })
-        }
-      } else {
         // Update existing project
-        const baseSlug = projectData.slug || projectData.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
-        const uniqueSlug = `${baseSlug}-${Date.now()}`
-        const { data: created, error } = await supabase
+        const { error } = await supabase
           .from('user_projects')
-          .insert({
-            user_id: user.id,
-            template_id: templateData.id,
+          .update({
             name: projectData.name,
-            slug: uniqueSlug,
-            data: { ...projectData }
+            data: { ...projectData, id: projectId },
+            updated_at: new Date().toISOString()
           })
-          .select('id')
-          .single()
+          .eq('id', projectId)
+        
         if (error) throw error
-        projectId = created.id
-        setCurrentProjectId(projectId)
-        onContentChange({ ...projectData, id: projectId })
+        console.log('✅ Existing project updated successfully!')
+      } else {
+        // This should never happen since we create projects in loadTemplateStructure
+        console.warn('⚠️ No projectId found in saveProjectData - this should not happen')
       }
 
       console.log('✅ Project saved successfully!')
+      setLastSavedData(projectData)
+      setHasUnsavedChanges(false)
       onSave()
     } catch (error) {
       console.error('❌ Error saving project:', error)
@@ -704,16 +868,24 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
     }
   }, [user, projectData, template?.slug, onSave])
 
-  // Auto-save on content changes with debouncing
+  // Track unsaved changes
   useEffect(() => {
-    if (!projectData) return
+    if (!projectData || !lastSavedData) return
+    
+    const hasChanges = JSON.stringify(projectData) !== JSON.stringify(lastSavedData)
+    setHasUnsavedChanges(hasChanges)
+  }, [projectData, lastSavedData])
+
+  // Auto-save on content changes with debouncing (only for existing projects)
+  useEffect(() => {
+    if (!projectData || !currentProjectId) return
     
     const timeoutId = setTimeout(() => {
       saveProjectData()
     }, 3000) // Auto-save after 3 seconds of inactivity
 
     return () => clearTimeout(timeoutId)
-  }, [projectData, saveProjectData])
+  }, [projectData, saveProjectData, currentProjectId])
 
   // Load template structure on mount
   useEffect(() => {
@@ -723,6 +895,17 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
   // Handle section selection
   const handleSectionSelect = (sectionId: string) => {
     setSelectedSection(sectionId)
+    // If the section is a header/nav, auto-focus its nav block if present
+    const section = sections.find(s => s.id === sectionId)
+    const key = (section?.type || section?.name || '').toString().toLowerCase()
+    if (key.includes('nav') || key.includes('header')) {
+      const navBlock = (section?.blocks || []).find((b: any) => {
+        const bt = (b?.type || b?.name || '').toString().toLowerCase()
+        return bt.includes('nav') || bt.includes('header')
+      })
+      setSelectedBlock(navBlock ? navBlock.id : null)
+      return
+    }
     setSelectedBlock(null)
   }
 
@@ -909,6 +1092,8 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
 
   // Handle block content update
   const handleBlockContentUpdate = async (blockId: string, content: any) => {
+    console.log('🔄 Updating block content:', { blockId, content })
+    
     const updatedSections = sections.map(section => ({
       ...section,
       blocks: section.blocks.map((block: any) => {
@@ -922,12 +1107,18 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
     
     // Update in database
     try {
-      await supabase
+      const { error } = await supabase
         .from('user_project_blocks')
         .update({ content })
         .eq('id', blockId)
+      
+      if (error) {
+        console.error('❌ Error updating block content in database:', error)
+      } else {
+        console.log('✅ Successfully updated block content in database for block:', blockId, 'with content:', content)
+      }
     } catch (error) {
-      console.error('Error updating block content:', error)
+      console.error('❌ Error updating block content:', error)
     }
   }
 
@@ -946,10 +1137,65 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
     onContentChange(updated)
   }
 
+  // Handle project selection
+  const handleProjectSelect = async (selectedProject: any) => {
+    console.log('✅ User selected project:', selectedProject.id)
+    setCurrentProjectId(selectedProject.id)
+    setShowProjectSelector(false)
+    
+    // Load the actual project data from database
+    try {
+      console.log('🔄 Loading project data from database...')
+      const { data: projectDataFromDb, error } = await supabase
+        .from('user_projects')
+        .select('data')
+        .eq('id', selectedProject.id)
+        .single()
+      
+      if (error) {
+        console.error('❌ Error loading project data:', error)
+        // Fallback to default data
+        onContentChange({ ...projectData, id: selectedProject.id })
+      } else if (projectDataFromDb?.data) {
+        console.log('✅ Loaded project data from database')
+        // Use the actual project data from database
+        onContentChange({ ...projectDataFromDb.data, id: selectedProject.id })
+      } else {
+        console.warn('⚠️ No project data found in database, using default')
+        onContentChange({ ...projectData, id: selectedProject.id })
+      }
+    } catch (error) {
+      console.error('❌ Error in handleProjectSelect:', error)
+      // Fallback to default data
+      onContentChange({ ...projectData, id: selectedProject.id })
+    }
+  }
+
+  // Handle create new project
+  const handleCreateNewProject = () => {
+    console.log('🔄 User chose to create new project')
+    setShowProjectSelector(false)
+    // Continue with new project creation
+    loadTemplateStructure()
+  }
+
   // Render the template with current data
   const renderTemplate = () => {
     try {
       // Transform the data to match the expected template structure
+      // Extract navbar block content if available
+      const navbarBlock = (sections || [])
+        .flatMap((s: any) => s?.blocks || [])
+        .find((b: any) => {
+          const t = (b?.type || b?.name || '').toString().toLowerCase()
+          return t.includes('nav') || t.includes('header')
+        })
+      const navbarContent = (navbarBlock && (navbarBlock as any).content) || {}
+      console.log('🔄 Navbar content:', navbarContent)
+      // Extract header section settings if available
+      const headerSection = (sections || []).find((s: any) => normalizeSectionKey(s) === 'navbar')
+      const headerSettings = (headerSection && (headerSection as any).settings) || {}
+
       const templateData = {
       tokenInfo: {
           name: projectData?.name || 'MEME Token',
@@ -962,14 +1208,35 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
           secondaryColor: projectData?.colors?.secondary || template?.colors?.secondary,
           accentColor: projectData?.colors?.accent || template?.colors?.accent,
           backgroundColor: projectData?.colors?.background || (template?.colors as any)?.background || '#ffffff',
-          logo: projectData?.branding?.logo || '',
+          logo: headerSettings.logoUrl || navbarContent.logoUrl || projectData?.branding?.logo || '',
           banner: projectData?.branding?.banner || ''
         },
         social: {
-          twitter: projectData?.social?.twitter || 'https://twitter.com/memecoin',
-          telegram: projectData?.social?.telegram || 'https://t.me/memecoin',
-          discord: projectData?.social?.discord || 'https://discord.gg/memetoken',
-          website: projectData?.social?.website || 'https://memetoken.com'
+          twitter: (headerSettings.social || {}).twitter || (navbarContent.social || {}).twitter || projectData?.social?.twitter || 'https://twitter.com/memecoin',
+          telegram: (headerSettings.social || {}).telegram || (navbarContent.social || {}).telegram || projectData?.social?.telegram || 'https://t.me/memecoin',
+          discord: (headerSettings.social || {}).discord || (navbarContent.social || {}).discord || projectData?.social?.discord || 'https://discord.gg/memetoken',
+          website: (headerSettings.social || {}).website || (navbarContent.social || {}).website || projectData?.social?.website || 'https://memetoken.com'
+      },
+      header: {
+        navItems: headerSettings.navItems || navbarContent.navItems || projectData?.header?.navItems || [
+          { label: 'About', href: '#about' },
+          { label: 'Tokenomics', href: '#tokenomics' },
+          { label: 'Roadmap', href: '#roadmap' },
+          { label: 'Team', href: '#team' }
+        ],
+        cta: headerSettings.cta || navbarContent.cta || projectData?.header?.cta || { text: 'Buy Now', href: undefined },
+        colors: {
+          primary: navbarContent.primaryColor || projectData?.colors?.primary || template?.colors?.primary,
+          secondary: navbarContent.secondaryColor || projectData?.colors?.secondary || template?.colors?.secondary,
+          socialBgColor: navbarContent.socialBgColor,
+          socialIconColor: navbarContent.socialIconColor,
+          buttonBgColor: navbarContent.buttonBgColor,
+          buttonTextColor: navbarContent.buttonTextColor,
+          navTextColor: navbarContent.navTextColor,
+          navBgColor: navbarContent.navBgColor,
+          tokenNameColor: navbarContent.tokenNameColor
+        },
+        displayName: navbarContent.displayName || projectData?.tokenInfo?.symbol
       },
       content: {
         hero: {
@@ -979,7 +1246,13 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
         },
         about: {
             title: projectData?.content?.about?.title || 'About Our Project',
-            content: projectData?.content?.about?.description || 'We are building something special that will change the crypto landscape forever.'
+            content: projectData?.content?.about?.description || 'We are building something special that will change the crypto landscape forever.',
+            description: projectData?.content?.about?.description || 'We are building something special that will change the crypto landscape forever.',
+            features: projectData?.content?.about?.features || [
+              { title: 'Community Driven', description: 'Built by the community, for the community', icon: '👥' },
+              { title: 'Transparent', description: 'All transactions and decisions are public', icon: '🔍' },
+              { title: 'Innovative', description: 'Pushing the boundaries of what is possible', icon: '💡' }
+            ]
           },
           features: projectData?.content?.about?.features || [
             { title: 'Community Driven', description: 'Built by the community, for the community', icon: '👥' },
@@ -1123,7 +1396,31 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
 
 
     return (
-      <div className="h-screen flex flex-col bg-gray-50">
+      <div className="h-screen flex flex-col bg-gray-50 relative">
+        {/* Floating Save Button for Unsaved Changes (only for existing projects) */}
+        {hasUnsavedChanges && currentProjectId && (
+          <div className="fixed bottom-6 right-6 z-50">
+            <button
+              onClick={saveProjectData}
+              disabled={isSaving}
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2 transition-all duration-200"
+            >
+              {isSaving ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>Save Changes</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
       {/* Database Setup Guide */}
       <DatabaseStatus error={dbError || undefined} />
       
@@ -1220,11 +1517,48 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
         </div>
       </div>
 
-      {/* Main Content - Three Panel Layout */}
-      <div className="flex-1 flex overflow-hidden">
+      {/* Pane Switcher (visible until 2xl) */}
+      <div className="2xl:hidden border-b border-gray-200 bg-white">
+        <div className="px-2 py-2 flex items-center justify-between gap-2">
+          <button
+            className={`flex-1 px-3 py-2 text-sm rounded-md border transition-colors ${activePane === 'structure' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-300 text-gray-700'}`}
+            onClick={() => setActivePane('structure')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setActivePane('structure') }}
+            aria-label="Show Structure"
+            tabIndex={0}
+          >
+            Structure
+          </button>
+          <button
+            className={`flex-1 px-3 py-2 text-sm rounded-md border transition-colors ${activePane === 'preview' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-300 text-gray-700'}`}
+            onClick={() => setActivePane('preview')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setActivePane('preview') }}
+            aria-label="Show Preview"
+            tabIndex={0}
+          >
+            Preview
+          </button>
+          <button
+            className={`flex-1 px-3 py-2 text-sm rounded-md border transition-colors ${activePane === 'settings' ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-white border-gray-300 text-gray-700'}`}
+            onClick={() => setActivePane('settings')}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setActivePane('settings') }}
+            aria-label="Show Settings"
+            tabIndex={0}
+          >
+            Settings
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content - Stacked until 2xl, three-panel at 2xl+ */}
+      <div className="flex-1 flex flex-col 2xl:flex-row overflow-hidden">
         {/* Left Sidebar - Sections */}
-        <div className={`bg-white border-r border-gray-200 flex flex-col transition-all duration-300 ${
-          sidebarCollapsed ? 'w-16' : 'w-80'
+        <div className={`bg-white border-r border-gray-200 transition-all duration-300 min-h-0 ${
+          // Show only when active until 2xl
+          activePane === 'structure' ? 'flex' : 'hidden'
+        } 2xl:flex flex-col ${
+          // Width behavior: full width until 2xl, fixed widths at 2xl+
+          sidebarCollapsed ? 'w-full 2xl:w-16' : 'w-full 2xl:w-80'
         }`}>
           {/* Sidebar Header */}
           <div className="px-4 sm:px-6 py-3 border-b border-gray-200 flex items-center justify-between">
@@ -1361,8 +1695,11 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
                                           block.is_enabled ? 'bg-green-400' : 'bg-gray-300'
                                         }`}></div>
                                         <span className="text-xs font-medium text-gray-700">{block.name}</span>
+                                        {(block?.type?.toLowerCase?.().includes('nav') || block?.name?.toLowerCase?.().includes('nav')) && (
+                                          <span className="ml-2 inline-flex items-center rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 border border-blue-200">Header</span>
+                                        )}
                                       </div>
-                                      <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <div className="flex items-center space-x-1 opacity-100">
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation()
@@ -1397,12 +1734,12 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
         </div>
 
         {/* Center Preview Area - 1:1 rendering */}
-        <div className="flex-1 bg-white overflow-auto">
+        <div className={`${activePane === 'preview' ? 'block' : 'hidden'} 2xl:block flex-1 bg-white overflow-auto min-h-0`}>
           {renderTemplate()}
         </div>
 
         {/* Right Sidebar - Settings */}
-        <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+        <div className={`${activePane === 'settings' ? 'flex' : 'hidden'} 2xl:flex w-full 2xl:w-80 bg-white border-l border-gray-200 flex-col min-h-0`}>
           {/* Settings Header */}
           <div className="px-6 py-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">Settings</h2>
@@ -1465,18 +1802,44 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
                   />
                   <input
                     type="text"
-                    value={(projectData as any).social?.website || (projectData as any).content?.social?.website || ''}
+                    value={(projectData as any).social?.discord || (projectData as any).content?.social?.discord || ''}
                     onChange={(e) => onContentChange({
                       ...projectData,
-                      social: { ...(projectData as any).social, website: e.target.value },
+                      social: { ...(projectData as any).social, discord: e.target.value },
                       content: {
                         ...projectData.content,
-                        social: { ...(projectData.content as any)?.social, website: e.target.value }
+                        social: { ...(projectData.content as any)?.social, discord: e.target.value }
                       }
                     })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Website URL"
+                    placeholder="Discord URL"
                   />
+
+                </div>
+
+                {/* Branding Logo */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-gray-700">Branding Logo</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files && e.target.files[0]
+                      if (!file) return
+                      const reader = new FileReader()
+                      reader.onload = () => {
+                        onContentChange({
+                          ...projectData,
+                          branding: { ...(projectData as any).branding, logo: String(reader.result) }
+                        })
+                      }
+                      reader.readAsDataURL(file)
+                    }}
+                    className="block w-full text-xs text-gray-700"
+                  />
+                  {(projectData as any)?.branding?.logo && (
+                    <img src={(projectData as any).branding.logo} alt="Logo preview" className="h-12 w-12 rounded object-cover" />
+                  )}
                 </div>
 
                 {/* Brand Colors */}
@@ -1497,6 +1860,7 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
                 block={sections
                   .flatMap(s => s.blocks)
                   .find(b => b.id === selectedBlock)}
+                template={template}
                 onSettingsChange={(settings) => handleBlockSettingsUpdate(selectedBlock, settings)}
                 onContentChange={(content) => handleBlockContentUpdate(selectedBlock, content)}
                 onToggleEnabled={(blockId, enabled) => handleBlockToggle(blockId, enabled)}
@@ -1541,6 +1905,68 @@ export function TemplateEditor({ projectData, template, onContentChange, onSave 
           </div>
         </div>
       </div>
+
+      {/* Project Selection Modal */}
+      {showProjectSelector && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[80vh] overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold text-gray-900">Choose a Project</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                You have existing projects for this template. Which one would you like to continue working on?
+              </p>
+            </div>
+            
+            <div className="px-6 py-4 max-h-96 overflow-y-auto">
+              {isLoadingProjects ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-3 text-gray-600">Loading projects...</span>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {existingProjects.map((project) => (
+                    <button
+                      key={project.id}
+                      onClick={() => handleProjectSelect(project)}
+                      className="w-full text-left p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-medium text-gray-900">{project.name}</h4>
+                          <p className="text-sm text-gray-500">
+                            Last updated: {new Date(project.updated_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+              <div className="flex gap-3">
+                <button
+                  onClick={handleCreateNewProject}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                >
+                  Create New Project
+                </button>
+                <button
+                  onClick={() => setShowProjectSelector(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

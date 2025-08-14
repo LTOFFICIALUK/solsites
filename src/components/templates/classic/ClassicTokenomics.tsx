@@ -1,14 +1,24 @@
 import { Lock, TrendingUp, Gift } from 'lucide-react'
 
 interface ClassicTokenomicsProps {
-  tokenSymbol: string
+  title: string
+  description: string
+  totalSupply: string
+  distribution: Array<{
+    name: string
+    percentage: number
+    color: string
+  }>
   primaryColor: string
   secondaryColor: string
   accentColor: string
 }
 
 export const ClassicTokenomics = ({
-  tokenSymbol,
+  title,
+  description,
+  totalSupply,
+  distribution,
   primaryColor,
   secondaryColor,
   accentColor
@@ -21,10 +31,10 @@ export const ClassicTokenomics = ({
             className="text-4xl md:text-5xl font-bold mb-6"
             style={{ color: primaryColor }}
           >
-            {tokenSymbol} Tokenomics
+            {title}
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Transparent token distribution designed for long-term growth and community rewards.
+            {description}
           </p>
         </div>
 
@@ -41,7 +51,7 @@ export const ClassicTokenomics = ({
               {/* Center Info */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="text-center">
-                  <div className="text-2xl font-bold mb-2">1,000,000,000</div>
+                  <div className="text-2xl font-bold mb-2">{totalSupply}</div>
                   <div className="text-sm text-gray-600">Total Supply</div>
                 </div>
               </div>
@@ -50,39 +60,21 @@ export const ClassicTokenomics = ({
 
           {/* Distribution Details */}
           <div className="space-y-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-4 h-4 rounded-full bg-blue-500"></div>
-              <div className="flex-1">
-                <div className="flex justify-between items-center mb-1">
-                  <h3 className="font-semibold">Liquidity Pool</h3>
-                  <span className="text-sm font-medium">40%</span>
+            {distribution.map((item, index) => (
+              <div key={index} className="flex items-center space-x-4">
+                <div className="w-4 h-4 rounded-full" style={{ backgroundColor: item.color }}></div>
+                <div className="flex-1">
+                  <div className="flex justify-between items-center mb-1">
+                    <h3 className="font-semibold">{item.name}</h3>
+                    <span className="text-sm font-medium">{item.percentage}%</span>
+                  </div>
+                  <div className="text-sm text-gray-600 mb-2">
+                    {Math.round((parseInt(totalSupply.replace(/[^\d]/g, '')) * item.percentage) / 100).toLocaleString()}
+                  </div>
+                  <p className="text-sm text-gray-500">{item.name} allocation</p>
                 </div>
-                <div className="text-sm text-gray-600 mb-2">400,000,000</div>
-                <p className="text-sm text-gray-500">Locked liquidity for trading stability</p>
               </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="w-4 h-4 rounded-full bg-green-500"></div>
-              <div className="flex-1">
-                <div className="flex justify-between items-center mb-1">
-                  <h3 className="font-semibold">Community</h3>
-                  <span className="text-sm font-medium">30%</span>
-                </div>
-                <div className="text-sm text-gray-600 mb-2">300,000,000</div>
-                <p className="text-sm text-gray-500">Distributed to community members</p>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="w-4 h-4 rounded-full bg-yellow-500"></div>
-              <div className="flex-1">
-                <div className="flex justify-between items-center mb-1">
-                  <h3 className="font-semibold">Marketing</h3>
-                  <span className="text-sm font-medium">15%</span>
-                </div>
-                <div className="text-sm text-gray-600 mb-2">150,000,000</div>
-                <p className="text-sm text-gray-500">Marketing and development funds</p>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
 

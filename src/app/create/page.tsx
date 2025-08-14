@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState, Suspense, useEffect } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Save } from 'lucide-react'
 import { getTemplateById } from '@/data/templates'
 import { TemplateEditor } from '@/components/editor/TemplateEditor'
+import { supabase } from '@/lib/supabase'
 
 interface ProjectData {
   id: string
@@ -145,40 +146,67 @@ function CreatePageContent() {
   const searchParams = useSearchParams()
   const templateId = searchParams.get('template') || 'neon'
   const template = getTemplateById(templateId)
+  const router = useRouter()
   
   const [projectData, setProjectData] = useState<ProjectData>({
     ...defaultProjectData,
-    id: crypto.randomUUID(), // Generate a proper UUID
+    id: 'new-project', // Will be replaced when saved to database
     template: templateId
   })
   
-  // Simplified create UI – delegate UI to TemplateEditor
+  const [user, setUser] = useState<any>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
-  const handleColorChange = (colorType: 'primary' | 'secondary' | 'accent', color: string) => {
-    setProjectData(prev => ({
-      ...prev,
-      colors: {
-        ...prev.colors,
-        [colorType]: color
+  // Get current user
+  useEffect(() => {
+    const getUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        setUser(user)
+        
+        if (!user) {
+          // Redirect to login if user is not authenticated
+          router.push('/login')
+        }
+      } catch (error) {
+        console.error('❌ Error getting user:', error)
+        router.push('/login')
+      } finally {
+        setIsLoading(false)
       }
-    }))
-  }
+    }
+    getUser()
+  }, [router])
 
-  const handleContentChange = (data: any) => {
+  const handleContentChange = async (data: any) => {
     setProjectData(prev => ({
       ...prev,
       ...data
     }))
   }
 
-  const handleSave = () => {
-    // Save project data to localStorage or backend
-    localStorage.setItem('sol-sites-project', JSON.stringify(projectData))
+
+
+  if (isLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Setting up your project...</p>
+        </div>
+      </div>
+    )
   }
 
-  const handlePublish = () => {
-    // Handle publishing logic
-    console.log('Publishing project:', projectData)
+  if (!user) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Redirecting to login...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -187,7 +215,7 @@ function CreatePageContent() {
         template={template}
         projectData={projectData}
         onContentChange={handleContentChange}
-        onSave={handleSave}
+        onSave={() => {}} // Empty function since TemplateEditor handles creation
       />
     </div>
   )

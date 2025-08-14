@@ -1,7 +1,9 @@
 import { CheckCircle, Circle, ArrowRight } from 'lucide-react'
 
 interface ClassicRoadmapProps {
-  roadmap: Array<{
+  title: string
+  description: string
+  phases: Array<{
     title: string
     description: string
     date: string
@@ -12,7 +14,7 @@ interface ClassicRoadmapProps {
   accentColor: string
 }
 
-export const ClassicRoadmap = ({ roadmap, primaryColor, secondaryColor, accentColor }: ClassicRoadmapProps) => {
+export const ClassicRoadmap = ({ title, description, phases, primaryColor, secondaryColor, accentColor }: ClassicRoadmapProps) => {
   return (
     <section className="py-20 bg-white" id="roadmap">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -21,17 +23,17 @@ export const ClassicRoadmap = ({ roadmap, primaryColor, secondaryColor, accentCo
             className="text-4xl md:text-5xl font-bold mb-6"
             style={{ color: primaryColor }}
           >
-            Roadmap
+            {title}
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Our journey to revolutionize the meme coin space
+            {description}
           </p>
         </div>
 
         <div className="relative">
           <div className="absolute left-1/2 transform -translate-x-1/2 w-1 h-full bg-gray-200"></div>
           <div className="space-y-12">
-            {roadmap.map((item, index) => (
+            {phases.map((item, index) => (
               <div key={index} className={`relative flex items-center ${index % 2 === 0 ? 'flex-row' : 'flex-row-reverse'}`}>
                 <div className="absolute left-1/2 transform -translate-x-1/2 z-10">
                   <div 

@@ -30,6 +30,10 @@ interface NeonTemplateProps {
       discord?: string
       website?: string
     }
+    header?: {
+      navItems?: Array<{ label: string; href: string }>
+      cta?: { text: string; href?: string }
+    }
     content: {
       hero: {
         title: string
@@ -111,9 +115,14 @@ export const NeonTemplate = ({ projectData, visibility, onEdit }: NeonTemplatePr
       {show('navbar') && (
       <Navbar 
         tokenSymbol={tokenInfo.symbol}
-        primaryColor={branding.primaryColor}
-        secondaryColor={branding.secondaryColor}
+        displayName={projectData?.header?.displayName}
+        primaryColor={projectData?.header?.colors?.primary || branding.primaryColor}
+        secondaryColor={projectData?.header?.colors?.secondary || branding.secondaryColor}
+        logoUrl={branding.logo}
+        navItems={projectData?.header?.navItems}
+        cta={projectData?.header?.cta}
         social={social}
+        colors={projectData?.header?.colors}
       />)}
 
       {/* Hero Section */}
