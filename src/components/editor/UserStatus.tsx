@@ -1,29 +1,26 @@
-"use client"
+'use client';
 
-import { useAuth } from '@/contexts/AuthContext'
+import React from 'react';
 
-export function UserStatus() {
-  const { user } = useAuth()
-
-  if (!user) {
-    return (
-      <div className="fixed top-4 left-4 bg-red-100 border border-red-300 text-red-700 px-4 py-2 rounded-lg shadow-lg z-50">
-        <div className="flex items-center space-x-2">
-          <span className="text-red-500">⚠️</span>
-          <span className="text-sm font-medium">Not logged in</span>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="fixed top-4 left-4 bg-green-100 border border-green-300 text-green-700 px-4 py-2 rounded-lg shadow-lg z-50">
-      <div className="flex items-center space-x-2">
-        <span className="text-green-500">✅</span>
-        <span className="text-sm font-medium">Logged in as: {user.email}</span>
-      </div>
-    </div>
-  )
+interface UserStatusProps {
+  user: any;
 }
+
+const UserStatus: React.FC<UserStatusProps> = ({ user }) => {
+  return (
+    <div className="flex items-center space-x-2">
+      <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+        <span className="text-white text-sm font-medium">
+          {user?.email?.charAt(0).toUpperCase() || 'U'}
+        </span>
+      </div>
+      <span className="text-sm text-gray-700">
+        {user?.email || 'User'}
+      </span>
+    </div>
+  );
+};
+
+export default UserStatus;
 
 

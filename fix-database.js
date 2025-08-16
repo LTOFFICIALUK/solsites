@@ -1,0 +1,74 @@
+const { createClient } = require('@supabase/supabase-js');
+
+// Supabase configuration
+const supabaseUrl = 'https://sxtmrdchzcxtknokyrjz.supabase.co';
+const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InN4dG1yZGNoemN4dGtub2t5cmp6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNDY5NzI5MCwiZXhwIjoyMDUwMjc0ODkwfQ.Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8Ej8';
+
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+async function fixDatabase() {
+  try {
+    console.log('Fixing get_project_data function...');
+    
+    const sql = `
+      CREATE OR REPLACE FUNCTION get_project_data(p_project_id UUID)
+      RETURNS JSONB AS $$
+      DECLARE
+        v_project_data JSONB;
+        v_blocks_data JSONB;
+      BEGIN
+        -- Get project info
+        SELECT jsonb_build_object(
+          'project', jsonb_build_object(
+            'id', up.id,
+            'name', up.name,
+            'slug', up.slug,
+            'template_id', up.template_id,
+            'is_published', up.is_published,
+            'created_at', up.created_at,
+            'updated_at', up.updated_at
+          )
+        ) INTO v_project_data
+        FROM user_projects up
+        WHERE up.id = p_project_id;
+        
+        IF v_project_data IS NULL THEN
+          RAISE EXCEPTION 'Project not found: %', p_project_id;
+        END IF;
+        
+        -- Get blocks data (REMOVED settings column reference)
+        SELECT jsonb_agg(
+          jsonb_build_object(
+            'id', upb.id,
+            'name', upb.name,
+            'type', upb.type,
+            'content', upb.content,
+            'order_index', upb.order_index,
+            'is_enabled', upb.is_enabled
+          ) ORDER BY upb.order_index
+        ) INTO v_blocks_data
+        FROM user_project_blocks upb
+        WHERE upb.project_id = p_project_id AND upb.is_enabled = true;
+        
+        -- Combine project and blocks data
+        RETURN v_project_data || jsonb_build_object('blocks', COALESCE(v_blocks_data, '[]'::jsonb));
+      END;
+      $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+      -- Grant execute permissions
+      GRANT EXECUTE ON FUNCTION get_project_data(UUID) TO authenticated;
+    `;
+
+    const { data, error } = await supabase.rpc('exec_sql', { sql });
+    
+    if (error) {
+      console.error('Error executing SQL:', error);
+    } else {
+      console.log('Successfully fixed get_project_data function!');
+    }
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
+
+fixDatabase();

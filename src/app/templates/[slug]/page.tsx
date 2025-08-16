@@ -270,7 +270,7 @@ export default function TemplatePreviewPage({ params }: TemplatePreviewPageProps
                 Start customizing your meme coin website with the {template.name} template.
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Link href={`/create?template=${template.id}`}>
+                <Link href={`/create?template=${template.slug}`}>
                   <Button 
                     size="lg" 
                     className="text-lg px-8 py-4 hover:scale-105 transition-all duration-300"

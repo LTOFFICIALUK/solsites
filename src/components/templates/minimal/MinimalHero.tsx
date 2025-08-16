@@ -10,11 +10,7 @@ interface MinimalHeroProps {
   accentColor: string
   backgroundImage?: string
   logo?: string
-  onEdit?: {
-    title?: (value: string) => void
-    subtitle?: (value: string) => void
-    description?: (value: string) => void
-  }
+
 }
 
 export const MinimalHero = ({
@@ -27,7 +23,7 @@ export const MinimalHero = ({
   accentColor,
   backgroundImage,
   logo,
-  onEdit
+
 }: MinimalHeroProps) => {
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
@@ -127,18 +123,7 @@ export const MinimalHero = ({
         </div>
       </div>
 
-      {/* Scroll Indicator */}
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
-        <div className="flex flex-col items-center">
-          <span className="text-sm text-gray-500 mb-2">Scroll to explore</span>
-          <div className="w-6 h-10 rounded-full border-2 flex justify-center" style={{ borderColor: primaryColor }}>
-            <div 
-              className="w-1 h-3 rounded-full mt-2 animate-bounce"
-              style={{ backgroundColor: primaryColor }}
-            ></div>
-          </div>
-        </div>
-      </div>
+
     </section>
   )
 }

@@ -18,6 +18,11 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
     flowType: 'pkce'
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'sol-sites-web'
+    }
   }
 })
 
@@ -76,6 +81,16 @@ export interface UserProject {
         title: string
         subtitle: string
         description: string
+        showTokenPill?: boolean
+        showStats?: boolean
+        showPrimaryButton?: boolean
+        showSecondaryButton?: boolean
+        showTokenVisual?: boolean
+
+        tokenSymbol?: string
+        stats?: Array<{ value: string; label: string; color: string }>
+        primaryButton?: { text: string; href: string }
+        secondaryButton?: { text: string; href: string }
       }
       about: {
         title: string

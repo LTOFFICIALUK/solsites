@@ -31,6 +31,8 @@ interface ClassicTemplateProps {
       website?: string
     }
     header?: {
+      displayName?: string
+      colors?: { primary?: string; secondary?: string }
       navItems?: Array<{ label: string; href: string }>
       cta?: { text: string; href?: string }
     }
@@ -54,8 +56,7 @@ interface ClassicTemplateProps {
         priceChange?: string
         circulatingSupply?: string
         totalSupply?: string
-        showScrollIndicator?: boolean
-        scrollText?: string
+
       }
                       about: {
           title: string
@@ -86,16 +87,32 @@ interface ClassicTemplateProps {
           social?: string
         }>
       }
+      footer?: {
+        tokenSymbol?: string
+        description?: string
+        social?: {
+          twitter?: string
+          telegram?: string
+          discord?: string
+          website?: string
+        }
+        tokenLinks?: Array<{ label: string; href: string }>
+        communityLinks?: Array<{ label: string; href: string }>
+        copyrightText?: string
+        backgroundColor?: string
+        textColor?: string
+        mutedTextColor?: string
+        borderColor?: string
+        columns?: string
+        padding?: string
+      }
     }
   }
-  visibility?: Partial<Record<'navbar' | 'hero' | 'about' | 'tokenomics' | 'team' | 'roadmap' | 'footer', boolean>>
-  onEdit?: {
-    hero?: { title?: (v: string) => void; subtitle?: (v: string) => void; description?: (v: string) => void }
-    about?: { title?: (v: string) => void; content?: (v: string) => void }
-  }
+  visibility?: Partial<Record<'navbar' | 'hero' | 'about' | 'tokenomics' | 'roadmap' | 'team' | 'footer', boolean>>
+
 }
 
-export const ClassicTemplate = ({ projectData, visibility, onEdit }: ClassicTemplateProps) => {
+export const ClassicTemplate = ({ projectData, visibility }: ClassicTemplateProps) => {
   const { tokenInfo, branding, social, content } = projectData
   const show = (key: keyof NonNullable<ClassicTemplateProps['visibility']>) => visibility?.[key] ?? true
 
@@ -146,7 +163,7 @@ export const ClassicTemplate = ({ projectData, visibility, onEdit }: ClassicTemp
         navItems={projectData?.header?.navItems}
         cta={projectData?.header?.cta}
         social={social}
-        colors={projectData?.header?.colors}
+        colors={projectData?.header?.colors as any}
       />)}
 
       {/* Hero Section */}
@@ -170,14 +187,13 @@ export const ClassicTemplate = ({ projectData, visibility, onEdit }: ClassicTemp
         showSecondaryButton={content.hero.showSecondaryButton}
         secondaryButton={content.hero.secondaryButton}
         showTokenVisual={content.hero.showTokenVisual}
-        tokenLogo={content.hero.tokenLogo}
+        tokenLogo={branding.logo || content.hero.tokenLogo}
         tokenPrice={content.hero.tokenPrice}
         priceChange={content.hero.priceChange}
         circulatingSupply={content.hero.circulatingSupply}
         totalSupply={content.hero.totalSupply}
-        showScrollIndicator={content.hero.showScrollIndicator}
-        scrollText={content.hero.scrollText}
-        onEdit={onEdit?.hero as any}
+
+
       />)}
 
       {/* About Section */}
@@ -185,20 +201,21 @@ export const ClassicTemplate = ({ projectData, visibility, onEdit }: ClassicTemp
       <ClassicAbout
         title={content.about.title}
         description={content.about.description}
-        features={content.about.features}
+        features={content.about.features || []}
         primaryColor={branding.primaryColor}
         secondaryColor={branding.secondaryColor}
         accentColor={branding.accentColor}
-        onEdit={onEdit?.about as any}
+
       />)}
 
       {/* Tokenomics Section */}
       {show('tokenomics') && (
       <ClassicTokenomics
-        title={content.tokenomics?.title || 'Tokenomics'}
-        description={content.tokenomics?.description || 'Fair and transparent token distribution'}
-        totalSupply={content.tokenomics?.totalSupply || '1,000,000,000'}
-        distribution={content.tokenomics?.distribution || []}
+        title={(content as any).tokenomics?.title || 'Tokenomics'}
+        description={(content as any).tokenomics?.description || 'Fair and transparent token distribution'}
+        totalSupply={(content as any).tokenomics?.totalSupply || '1,000,000,000'}
+        distribution={(content as any).tokenomics?.distribution || []}
+        features={(content as any).tokenomics?.features || []}
         primaryColor={branding.primaryColor}
         secondaryColor={branding.secondaryColor}
         accentColor={branding.accentColor}
@@ -207,9 +224,13 @@ export const ClassicTemplate = ({ projectData, visibility, onEdit }: ClassicTemp
       {/* Roadmap Section */}
       {show('roadmap') && (
       <ClassicRoadmap
-        title="Roadmap"
-        description="Our journey to success"
-        phases={content.roadmap || []}
+        content={{
+          title: content.roadmap?.title || 'Roadmap',
+          description: content.roadmap?.description || 'Our journey to success',
+          showCtaButton: (content as any).roadmap?.showCtaButton,
+          ctaButton: (content as any).roadmap?.ctaButton,
+          roadmap: Array.isArray(content.roadmap) ? content.roadmap : content.roadmap?.phases || []
+        }}
         primaryColor={branding.primaryColor}
         secondaryColor={branding.secondaryColor}
         accentColor={branding.accentColor}
@@ -218,9 +239,11 @@ export const ClassicTemplate = ({ projectData, visibility, onEdit }: ClassicTemp
       {/* Team Section */}
       {show('team') && (
       <ClassicTeam
-        title="Our Team"
-        description="Meet the brilliant minds behind our project"
-        members={content.team || []}
+        content={{
+          title: content.team?.title || 'Our Team',
+          description: content.team?.description || 'Meet the brilliant minds behind our project',
+          members: content.team?.members || content.team || []
+        }}
         primaryColor={branding.primaryColor}
         secondaryColor={branding.secondaryColor}
         accentColor={branding.accentColor}
@@ -229,11 +252,11 @@ export const ClassicTemplate = ({ projectData, visibility, onEdit }: ClassicTemp
       {/* Footer */}
       {show('footer') && (
       <ClassicFooter
-        tokenSymbol={tokenInfo.symbol}
-        social={social}
+        projectName={tokenInfo.name}
         primaryColor={branding.primaryColor}
         secondaryColor={branding.secondaryColor}
         accentColor={branding.accentColor}
+        colors={projectData?.header?.colors as any}
       />)}
     </div>
   )

@@ -2,69 +2,9 @@
 
 import { useParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { trackPageView, getCurrentSessionId, endSession } from '@/lib/analytics'
-import { NeonTemplate } from '@/components/templates/neon/NeonTemplate'
-import { ClassicTemplate } from '@/components/templates/classic/ClassicTemplate'
-import { MinimalTemplate } from '@/components/templates/minimal/MinimalTemplate'
+import { loadProjectData, ProjectData, ProjectBlock } from '@/lib/services'
 import { ArrowLeft, X } from 'lucide-react'
 import Link from 'next/link'
-import { notFound } from 'next/navigation'
-import { getTemplateById } from '@/data/templates'
-
-interface ProjectData {
-  id: string
-  name: string
-  template: string
-  colors: {
-    primary: string
-    secondary: string
-    accent: string
-  }
-  content: {
-    hero: {
-      title: string
-      subtitle: string
-      description: string
-    }
-    about: {
-      title: string
-      description: string
-      features: Array<{
-        title: string
-        description: string
-        icon: string
-      }>
-    }
-    tokenomics: {
-      title: string
-      description: string
-      totalSupply: string
-      distribution: Array<{
-        name: string
-        percentage: number
-        color: string
-      }>
-    }
-    team: {
-      title: string
-      description: string
-      members: Array<{
-        name: string
-        role: string
-        avatar: string
-        social: {
-          twitter?: string
-        }
-      }>
-    }
-    social: {
-      twitter?: string
-      telegram?: string
-      website?: string
-    }
-  }
-}
 
 export default function ProjectPreviewPage() {
   const params = useParams()
@@ -73,9 +13,8 @@ export default function ProjectPreviewPage() {
   const [projectData, setProjectData] = useState<ProjectData | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [hasTrackedInitialView, setHasTrackedInitialView] = useState(false)
 
-  // Load project data
+  // Load project data using the new unified system
   useEffect(() => {
     const loadProject = async () => {
       try {
@@ -84,50 +23,11 @@ export default function ProjectPreviewPage() {
 
         console.log('🔍 Loading project for preview with ID:', projectId)
 
-        // Get project from database
-        const { data: project, error: projectError } = await supabase
-          .from('user_projects')
-          .select('*')
-          .eq('id', projectId)
-          .single()
-
-        if (projectError) {
-          console.error('❌ Error loading project:', projectError)
-          throw new Error('Project not found')
-        }
-
-        if (!project) {
-          throw new Error('Project not found')
-        }
-
-        console.log('✅ Project loaded for preview:', project)
-
-        // Load sections and blocks data
-        const { data: sections, error: sectionsError } = await supabase
-          .from('user_project_sections')
-          .select(`
-            *,
-            blocks:user_project_blocks(*)
-          `)
-          .eq('project_id', projectId)
-          .order('order_index')
-
-        if (sectionsError) {
-          console.error('❌ Error loading sections:', sectionsError)
-        }
-
-        console.log('✅ Sections loaded for preview:', sections)
-
-        // Parse the project data and add sections
-        const parsedData = {
-          ...project.data,
-          sections: sections || []
-        } as ProjectData & { sections: any[] }
-        
-        setProjectData(parsedData)
-        
+        const data = await loadProjectData(projectId)
+        setProjectData(data)
+        console.log('✅ Project loaded for preview:', data)
       } catch (err) {
-        console.error('❌ Error loading project for preview:', err)
+        console.error('❌ Error loading project:', err)
         setError(err instanceof Error ? err.message : 'Failed to load project')
       } finally {
         setIsLoading(false)
@@ -139,187 +39,151 @@ export default function ProjectPreviewPage() {
     }
   }, [projectId])
 
-  // Track page view when project data is loaded (editor preview)
-  useEffect(() => {
-    if (!projectId || !projectData || hasTrackedInitialView) return
-    const pageUrl = typeof window !== 'undefined' ? window.location.href : `/edit/${projectId}/preview`
-    trackPageView(projectId, pageUrl)
-    setHasTrackedInitialView(true)
-  }, [projectId, projectData, hasTrackedInitialView])
+  // Render individual blocks using the same logic as the editor
+  const renderBlock = (block: ProjectBlock) => {
+    if (!block.is_enabled) return null;
 
-  // End session on tab close/unload
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      const sessionId = getCurrentSessionId()
-      if (sessionId) {
-        const end = async () => {
-          try { await endSession(sessionId) } catch {}
-        }
-        end()
-      }
-    }
+    switch (block.type) {
+      case 'navbar':
+        return (
+          <nav key={block.id} className="bg-white shadow-sm border-b border-gray-200">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex justify-between items-center h-16">
+                <div className="flex items-center">
+                  <div className="text-xl font-bold text-gray-900">
+                    {block.content.logo || 'Logo'}
+                  </div>
+                </div>
+                <div className="hidden md:block">
+                  <div className="ml-10 flex items-baseline space-x-4">
+                    {(block.content.navItems || []).map((item: any, index: number) => (
+                      <a
+                        key={index}
+                        href={item.href || '#'}
+                        className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                      >
+                        {item.text || item.label || 'Link'}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+                {block.content.cta && (
+                  <div className="hidden md:block">
+                    <a
+                      href={block.content.cta.href || '#'}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
+                    >
+                      {block.content.cta.text || 'Get Started'}
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </nav>
+        );
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('beforeunload', handleBeforeUnload)
-    }
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('beforeunload', handleBeforeUnload)
-      }
-    }
-  }, [])
+      case 'hero':
+        return (
+          <section key={block.id} className="bg-gradient-to-r from-blue-600 to-purple-700 text-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+              <div className="text-center">
+                <h1 className="text-4xl md:text-6xl font-bold mb-6">
+                  {block.content.title || 'Welcome'}
+                </h1>
+                <p className="text-xl md:text-2xl mb-4">
+                  {block.content.subtitle || 'Subtitle'}
+                </p>
+                <p className="text-lg mb-8 max-w-3xl mx-auto">
+                  {block.content.description || 'Description'}
+                </p>
+                {block.content.cta && (
+                  <a
+                    href={block.content.cta.href || '#'}
+                    className="bg-white text-blue-600 px-8 py-3 rounded-lg text-lg font-semibold hover:bg-gray-100 transition-colors"
+                  >
+                    {block.content.cta.text || 'Get Started'}
+                  </a>
+                )}
+              </div>
+            </div>
+          </section>
+        );
 
-  // Transform project data to template format
-  const transformProjectData = (data: ProjectData & { sections?: any[] }) => {
-    // Extract content from sections and blocks (same logic as editor)
-    const extractBlockContent = (blockType: string) => {
-      const block = (data.sections || [])
-        .flatMap((s: any) => s?.blocks || [])
-        .find((b: any) => {
-          const t = (b?.type || b?.name || '').toString().toLowerCase()
-          return t.includes(blockType.toLowerCase())
-        })
-      return (block && (block as any).content) || {}
-    }
+      case 'about':
+        return (
+          <section key={block.id} className="py-16 bg-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center mb-12">
+                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+                  {block.content.title || 'About Us'}
+                </h2>
+                <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+                  {block.content.description || 'About description'}
+                </p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {(block.content.features || []).map((feature: any, index: number) => (
+                  <div key={index} className="text-center p-6 border border-gray-200 rounded-lg">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      {feature.title || 'Feature'}
+                    </h3>
+                    <p className="text-gray-600">
+                      {feature.description || 'Feature description'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        );
 
-    // Extract navbar/header content
-    const navbarBlock = (data.sections || [])
-      .flatMap((s: any) => s?.blocks || [])
-      .find((b: any) => {
-        const t = (b?.type || b?.name || '').toString().toLowerCase()
-        return t.includes('nav') || t.includes('header')
-      })
-    const navbarContent = (navbarBlock && (navbarBlock as any).content) || {}
-    
-    // Extract header section settings if available
-    const headerSection = (data.sections || []).find((s: any) => {
-      const t = (s?.type || s?.name || '').toString().toLowerCase()
-      return t.includes('nav') || t.includes('header')
-    })
-    const headerSettings = (headerSection && (headerSection as any).settings) || {}
+      case 'footer':
+        return (
+          <footer key={block.id} className="bg-gray-800 text-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+              <div className="flex flex-col md:flex-row justify-between items-center">
+                <div className="mb-4 md:mb-0">
+                  <p className="text-gray-300">
+                    {block.content.copyright || '© 2024 All rights reserved'}
+                  </p>
+                </div>
+                <div className="flex space-x-6">
+                  {block.content.social && Object.entries(block.content.social).map(([platform, url]) => (
+                    <a
+                      key={platform}
+                      href={url as string}
+                      className="text-gray-300 hover:text-white transition-colors capitalize"
+                    >
+                      {platform}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </footer>
+        );
 
-    // Extract hero content with comprehensive data
-    const heroContent = extractBlockContent('hero')
-    
-    // Extract other section content
-    const aboutContent = extractBlockContent('about')
-    const tokenomicsContent = extractBlockContent('tokenomics')
-    const teamContent = extractBlockContent('team')
-    const roadmapContent = extractBlockContent('roadmap')
-    const footerContent = extractBlockContent('footer')
-
-    return {
-      tokenInfo: {
-        name: data.name || 'MEME Token',
-        symbol: heroContent.tokenSymbol || (data as any).tokenInfo?.symbol || 'MEME',
-        contractAddress: (data as any).tokenInfo?.contractAddress || '0x1234567890abcdef1234567890abcdef12345678',
-        description: heroContent.description || data.content?.hero?.description || 'Join the revolution with our innovative meme coin that combines humor, community, and cutting-edge blockchain technology.'
-      },
-      branding: {
-        primaryColor: heroContent.primaryColor || data.colors?.primary || (getTemplateById(data.template as any) as any)?.colors?.primary || '#FF6B6B',
-        secondaryColor: heroContent.secondaryColor || data.colors?.secondary || (getTemplateById(data.template as any) as any)?.colors?.secondary || '#4ECDC4',
-        accentColor: heroContent.accentColor || data.colors?.accent || (getTemplateById(data.template as any) as any)?.colors?.accent || '#45B7D1',
-        logo: headerSettings.logoUrl || navbarContent.logoUrl || (data as any).branding?.logo || '',
-        banner: (data as any).branding?.banner || ''
-      },
-      social: {
-        twitter: (headerSettings.social || {}).twitter || (navbarContent.social || {}).twitter || data.content?.social?.twitter || 'https://twitter.com/memecoin',
-        telegram: (headerSettings.social || {}).telegram || (navbarContent.social || {}).telegram || data.content?.social?.telegram || 'https://t.me/memecoin',
-        discord: (headerSettings.social || {}).discord || (navbarContent.social || {}).discord || (data.content as any)?.social?.discord || 'https://discord.gg/memetoken',
-        website: (headerSettings.social || {}).website || (navbarContent.social || {}).website || data.content?.social?.website || 'https://memetoken.com'
-      },
-      header: {
-        navItems: headerSettings.navItems || navbarContent.navItems || data.content?.header?.navItems || [
-          { label: 'About', href: '#about' },
-          { label: 'Tokenomics', href: '#tokenomics' },
-          { label: 'Roadmap', href: '#roadmap' },
-          { label: 'Team', href: '#team' }
-        ],
-        cta: headerSettings.cta || navbarContent.cta || data.content?.header?.cta || { text: 'Buy Now', href: undefined },
-        colors: {
-          primary: navbarContent.primaryColor || data.colors?.primary || (getTemplateById(data.template as any) as any)?.colors?.primary,
-          secondary: navbarContent.secondaryColor || data.colors?.secondary || (getTemplateById(data.template as any) as any)?.colors?.secondary
-        },
-        displayName: navbarContent.displayName || (data as any).tokenInfo?.symbol
-      },
-      content: {
-        hero: {
-          title: heroContent.title || 'Welcome to the Future',
-          subtitle: heroContent.subtitle || 'The Next Big Thing in Crypto',
-          description: heroContent.description || 'Join the revolution with our innovative meme coin that combines humor, community, and cutting-edge blockchain technology.',
-          // Comprehensive hero content
-          tokenSymbol: heroContent.tokenSymbol || 'MEME',
-          showTokenPill: heroContent.showTokenPill !== false,
-          showStats: heroContent.showStats !== false,
-          stats: heroContent.stats || [
-            { value: '10K+', label: 'Holders', color: 'primary' },
-            { value: '$2.5M', label: 'Market Cap', color: 'secondary' },
-            { value: '$500K', label: '24h Volume', color: 'accent' }
-          ],
-          showPrimaryButton: heroContent.showPrimaryButton !== false,
-          primaryButton: heroContent.primaryButton || { text: 'Buy Now', href: '' },
-          showSecondaryButton: heroContent.showSecondaryButton !== false,
-          secondaryButton: heroContent.secondaryButton || { text: 'Watch Video', href: '' },
-          showTokenVisual: heroContent.showTokenVisual !== false,
-          tokenLogo: heroContent.tokenLogo || '',
-          tokenPrice: heroContent.tokenPrice || '$0.0025',
-          priceChange: heroContent.priceChange || '+15.2%',
-          circulatingSupply: heroContent.circulatingSupply || '800M',
-          totalSupply: heroContent.totalSupply || '1B',
-          showScrollIndicator: heroContent.showScrollIndicator !== false,
-          scrollText: heroContent.scrollText || 'Scroll to explore'
-        },
-        about: {
-          title: aboutContent.title || data.content?.about?.title || 'About Our Project',
-          content: aboutContent.description || data.content?.about?.description || 'We are building something special that will change the crypto landscape forever.'
-        },
-        features: aboutContent.features || data.content?.about?.features || [
-          { title: 'Community Driven', description: 'Built by the community, for the community', icon: '👥' },
-          { title: 'Transparent', description: 'All transactions and decisions are public', icon: '🔍' },
-          { title: 'Innovative', description: 'Pushing the boundaries of what is possible', icon: '💡' }
-        ],
-        tokenomics: {
-          title: tokenomicsContent.title || data.content?.tokenomics?.title || 'Tokenomics',
-          description: tokenomicsContent.description || data.content?.tokenomics?.description || 'Fair and transparent token distribution',
-          totalSupply: tokenomicsContent.totalSupply || data.content?.tokenomics?.totalSupply || '1,000,000,000',
-          distribution: tokenomicsContent.distribution || data.content?.tokenomics?.distribution || [
-            { name: 'Liquidity', percentage: 40, color: '#FF6B6B' },
-            { name: 'Community', percentage: 30, color: '#4ECDC4' },
-            { name: 'Team', percentage: 15, color: '#45B7D1' },
-            { name: 'Marketing', percentage: 10, color: '#96CEB4' },
-            { name: 'Development', percentage: 5, color: '#FFEAA7' }
-          ]
-        },
-        team: teamContent.members || data.content?.team?.members || [
-          { name: 'Alex Johnson', role: 'Founder & CEO', avatar: '👨‍💼', social: '@alexjohnson' },
-          { name: 'Sarah Chen', role: 'Lead Developer', avatar: '👩‍💻', social: '@sarahchen' },
-          { name: 'Mike Rodriguez', role: 'Marketing Director', avatar: '👨‍💼', social: '@mikerodriguez' }
-        ],
-        roadmap: roadmapContent.phases || (data as any).content?.roadmap?.phases || [
-          { title: 'Phase 1: Launch', description: 'Initial token launch and community building', date: 'Q1 2024', completed: true },
-          { title: 'Phase 2: Development', description: 'Core features and platform development', date: 'Q2 2024', completed: false },
-          { title: 'Phase 3: Expansion', description: 'Partnerships and ecosystem growth', date: 'Q3 2024', completed: false }
-        ]
-      }
-    }
-  }
-
-  const renderTemplate = () => {
-    if (!projectData) return null
-
-    const templateData = transformProjectData(projectData)
-
-    switch (projectData.template) {
-      case 'neon':
-        return <NeonTemplate projectData={templateData} />
-      case 'classic':
-        return <ClassicTemplate projectData={templateData} />
-      case 'minimal':
-        return <MinimalTemplate projectData={templateData} />
       default:
-        return <div className="p-8 text-center text-gray-500">Template not found</div>
+        return (
+          <div key={block.id} className="p-8 text-center text-gray-500">
+            <p>Unknown block type: {block.type}</p>
+          </div>
+        );
     }
-  }
+  };
+
+  // Render the project using blocks
+  const renderProject = () => {
+    if (!projectData) return null;
+    
+    return (
+      <div className="min-h-screen bg-white">
+        {projectData.blocks
+          .filter(block => block.is_enabled)
+          .map(block => renderBlock(block))}
+      </div>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -385,7 +249,7 @@ export default function ProjectPreviewPage() {
             <div className="flex items-center space-x-2">
               <div 
                 className="w-3 h-3 rounded-full"
-                style={{ backgroundColor: projectData.colors?.primary || '#3B82F6' }}
+                style={{ backgroundColor: '#3B82F6' }}
               ></div>
               <span className="font-medium">{projectData.name} - Live Preview</span>
             </div>
@@ -405,9 +269,9 @@ export default function ProjectPreviewPage() {
         </div>
       </div>
 
-      {/* Template Content */}
+      {/* Project Content */}
       <div className="pt-16 h-full overflow-auto">
-        {renderTemplate()}
+        {renderProject()}
       </div>
     </div>
   )

@@ -1,267 +1,377 @@
-import { supabase, Template, UserProject } from './supabase'
+import { createClient } from '@supabase/supabase-js';
 
-// Template services
-export const templateService = {
-  async getAllTemplates(): Promise<Template[]> {
-    const { data, error } = await supabase
-      .from('templates')
-      .select('*')
-      .order('created_at', { ascending: false })
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-    if (error) throw error
-    return data || []
-  },
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-  async getTemplateBySlug(slug: string): Promise<Template | null> {
-    const { data, error } = await supabase
-      .from('templates')
-      .select('*')
-      .eq('slug', slug)
-      .single()
+// =====================================================
+// UNIFIED BLOCK-BASED PROJECT SERVICES
+// =====================================================
 
-    if (error) throw error
-    return data
-  },
-
-  async getTemplateById(id: string): Promise<Template | null> {
-    const { data, error } = await supabase
-      .from('templates')
-      .select('*')
-      .eq('id', id)
-      .single()
-
-    if (error) throw error
-    return data
-  }
+export interface ProjectBlock {
+  id?: string;
+  name: string;
+  type: string;
+  content: Record<string, any>;
+  order_index: number;
+  is_enabled: boolean;
 }
 
-// Project services
-export const projectService = {
-  async getUserProjects(userId: string): Promise<UserProject[]> {
-    const { data, error } = await supabase
-      .from('user_projects')
-      .select(`
-        *,
-        templates (*)
-      `)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
+export interface ProjectData {
+  id?: string;
+  name: string;
+  slug: string;
+  template_id: string;
+  is_published: boolean;
+  blocks: ProjectBlock[];
+}
 
-    if (error) throw error
-    return data || []
-  },
+// =====================================================
+// PROJECT CREATION - UNIFIED PIPELINE
+// =====================================================
 
-  async getProjectById(id: string): Promise<UserProject | null> {
-    const { data, error } = await supabase
-      .from('user_projects')
-      .select(`
-        *,
-        templates (*)
-      `)
-      .eq('id', id)
-      .single()
+export const createProjectFromTemplate = async (
+  userId: string,
+  name: string,
+  slug: string,
+  templateSlug: string
+): Promise<string> => {
+  try {
+    // Use the unified database function to create project and blocks
+    const { data, error } = await supabase.rpc('create_project_from_template', {
+      p_user_id: userId,
+      p_project_name: name,
+      p_project_slug: slug,
+      p_template_slug: templateSlug
+    });
 
-    if (error) throw error
-    return data
-  },
+    if (error) {
+      console.error('Error creating project:', error);
+      throw new Error(`Failed to create project: ${error.message}`);
+    }
 
-  async getProjectBySlug(slug: string): Promise<UserProject | null> {
-    const { data, error } = await supabase
-      .from('user_projects')
-      .select(`
-        *,
-        templates (*)
-      `)
-      .eq('slug', slug)
-      .single()
+    return data;
+  } catch (error) {
+    console.error('Error in createProjectFromTemplate:', error);
+    throw error;
+  }
+};
 
-    if (error) throw error
-    return data
-  },
+// =====================================================
+// PROJECT LOADING - UNIFIED PIPELINE
+// =====================================================
 
-  async createProject(project: Omit<UserProject, 'id' | 'created_at' | 'updated_at'>): Promise<UserProject> {
-    const { data, error } = await supabase
-      .from('user_projects')
-      .insert(project)
-      .select()
-      .single()
+export const loadProjectData = async (projectId: string): Promise<ProjectData> => {
+  try {
+    // Use the unified database function to get all project data
+    const { data, error } = await supabase.rpc('get_project_data', {
+      p_project_id: projectId
+    });
 
-    if (error) throw error
-    return data
-  },
+    if (error) {
+      console.error('Error loading project:', error);
+      throw new Error(`Failed to load project: ${error.message}`);
+    }
 
-  async updateProject(id: string, updates: Partial<UserProject>): Promise<UserProject> {
-    const { data, error } = await supabase
+    if (!data) {
+      throw new Error('Project not found');
+    }
+
+    // Transform the database response to our interface
+    const projectData: ProjectData = {
+      id: data.project.id,
+      name: data.project.name,
+      slug: data.project.slug,
+      template_id: data.project.template_id,
+      is_published: data.project.is_published,
+      blocks: data.blocks || []
+    };
+
+    return projectData;
+  } catch (error) {
+    console.error('Error in loadProjectData:', error);
+    throw error;
+  }
+};
+
+// =====================================================
+// BLOCK OPERATIONS - UNIFIED PIPELINE
+// =====================================================
+
+export const updateBlockContent = async (
+  blockId: string,
+  content: Record<string, any>
+): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('user_project_blocks')
+      .update({ content })
+      .eq('id', blockId);
+
+    if (error) {
+      console.error('Error updating block:', error);
+      throw new Error(`Failed to update block: ${error.message}`);
+    }
+  } catch (error) {
+    console.error('Error in updateBlockContent:', error);
+    throw error;
+  }
+};
+
+export const updateBlockSettings = async (
+  blockId: string,
+  settings: Record<string, any>
+): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('user_project_blocks')
+      .update({ content: settings })
+      .eq('id', blockId);
+
+    if (error) {
+      console.error('Error updating block settings:', error);
+      throw new Error(`Failed to update block settings: ${error.message}`);
+    }
+  } catch (error) {
+    console.error('Error in updateBlockSettings:', error);
+    throw error;
+  }
+};
+
+export const toggleBlockEnabled = async (
+  blockId: string,
+  isEnabled: boolean
+): Promise<void> => {
+  try {
+    const { error } = await supabase
+      .from('user_project_blocks')
+      .update({ is_enabled: isEnabled })
+      .eq('id', blockId);
+
+    if (error) {
+      console.error('Error toggling block:', error);
+      throw new Error(`Failed to toggle block: ${error.message}`);
+    }
+  } catch (error) {
+    console.error('Error in toggleBlockEnabled:', error);
+    throw error;
+  }
+};
+
+export const reorderBlocks = async (
+  projectId: string,
+  blockOrders: { id: string; order_index: number }[]
+): Promise<void> => {
+  try {
+    // Update each block's order index
+    for (const blockOrder of blockOrders) {
+      const { error } = await supabase
+        .from('user_project_blocks')
+        .update({ order_index: blockOrder.order_index })
+        .eq('id', blockOrder.id)
+        .eq('project_id', projectId);
+
+      if (error) {
+        console.error('Error reordering block:', error);
+        throw new Error(`Failed to reorder block: ${error.message}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error in reorderBlocks:', error);
+    throw error;
+  }
+};
+
+// =====================================================
+// PROJECT MANAGEMENT - UNIFIED PIPELINE
+// =====================================================
+
+export const updateProjectMetadata = async (
+  projectId: string,
+  updates: Partial<Pick<ProjectData, 'name' | 'slug' | 'is_published'>>
+): Promise<void> => {
+  try {
+    const { error } = await supabase
       .from('user_projects')
       .update(updates)
-      .eq('id', id)
-      .select()
-      .single()
+      .eq('id', projectId);
 
-    if (error) throw error
-    return data
-  },
+    if (error) {
+      console.error('Error updating project:', error);
+      throw new Error(`Failed to update project: ${error.message}`);
+    }
+  } catch (error) {
+    console.error('Error in updateProjectMetadata:', error);
+    throw error;
+  }
+};
 
-  async deleteProject(id: string): Promise<void> {
+export const deleteProject = async (projectId: string): Promise<void> => {
+  try {
+    // This will cascade delete all blocks due to foreign key constraints
     const { error } = await supabase
       .from('user_projects')
       .delete()
-      .eq('id', id)
+      .eq('id', projectId);
 
-    if (error) throw error
-  },
-
-  async publishProject(id: string): Promise<UserProject> {
-    const { data, error } = await supabase
-      .from('user_projects')
-      .update({ is_published: true })
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (error) throw error
-    return data
-  },
-
-  async unpublishProject(id: string): Promise<UserProject> {
-    const { data, error } = await supabase
-      .from('user_projects')
-      .update({ is_published: false })
-      .eq('id', id)
-      .select()
-      .single()
-
-    if (error) throw error
-    return data
-  }
-}
-
-// Helper function to create a new project from a template
-export async function createProjectFromTemplate(
-  userId: string,
-  templateId: string,
-  projectName: string
-): Promise<UserProject> {
-  // Get the template
-  const template = await templateService.getTemplateById(templateId)
-  if (!template) {
-    throw new Error('Template not found')
-  }
-
-  // Generate a unique slug
-  const baseSlug = projectName.toLowerCase().replace(/[^a-z0-9]/g, '-')
-  const slug = `${baseSlug}-${Date.now()}`
-
-  // Create default project data based on template
-  const defaultData = {
-    tokenInfo: {
-      name: projectName,
-      symbol: projectName.substring(0, 4).toUpperCase(),
-      contractAddress: '0x1234567890abcdef1234567890abcdef12345678',
-      description: 'Join the revolution with our innovative meme coin that combines humor, community, and cutting-edge blockchain technology.'
-    },
-    branding: {
-      primaryColor: template.colors.primary,
-      secondaryColor: template.colors.secondary,
-      accentColor: template.colors.accent,
-      logo: '🚀',
-      banner: 'https://via.placeholder.com/1200x400'
-    },
-    social: {
-      twitter: 'https://twitter.com/memetoken',
-      telegram: 'https://t.me/memetoken',
-      discord: 'https://discord.gg/memetoken',
-      website: 'https://memetoken.com'
-    },
-    header: {
-      navItems: [
-        { label: 'About', href: '#about' },
-        { label: 'Tokenomics', href: '#tokenomics' },
-        { label: 'Roadmap', href: '#roadmap' },
-        { label: 'Team', href: '#team' }
-      ],
-      cta: { text: 'Buy Now' }
-    },
-    content: {
-      hero: {
-        title: 'Welcome to the Future',
-        subtitle: 'The Next Big Thing in Crypto',
-        description: 'Join the revolution with our innovative meme coin that combines humor, community, and cutting-edge blockchain technology.'
-      },
-      about: {
-        title: 'About Our Project',
-        content: 'We\'re building something special that will change the crypto landscape forever.'
-      },
-      features: [
-        {
-          title: 'Community Driven',
-          description: 'Built by the community, for the community.',
-          icon: 'users'
-        },
-        {
-          title: 'Transparent',
-          description: 'Full transparency in all our operations and decisions.',
-          icon: 'eye'
-        },
-        {
-          title: 'Innovative',
-          description: 'Cutting-edge technology and forward-thinking approach.',
-          icon: 'zap'
-        }
-      ],
-      roadmap: [
-        {
-          title: 'Phase 1: Launch',
-          description: 'Initial token launch and community building',
-          date: 'Q1 2024',
-          completed: true
-        },
-        {
-          title: 'Phase 2: Development',
-          description: 'Core features and platform development',
-          date: 'Q2 2024',
-          completed: false
-        },
-        {
-          title: 'Phase 3: Expansion',
-          description: 'Partnerships and ecosystem growth',
-          date: 'Q3 2024',
-          completed: false
-        }
-      ],
-      team: [
-        {
-          name: 'Alex Johnson',
-          role: 'Founder & CEO',
-          avatar: '',
-          social: 'https://twitter.com/alexjohnson'
-        },
-        {
-          name: 'Sarah Chen',
-          role: 'Lead Developer',
-          avatar: '',
-          social: 'https://twitter.com/sarahchen'
-        },
-        {
-          name: 'Mike Rodriguez',
-          role: 'Marketing Director',
-          avatar: '',
-          social: 'https://twitter.com/mikerodriguez'
-        }
-      ]
+    if (error) {
+      console.error('Error deleting project:', error);
+      throw new Error(`Failed to delete project: ${error.message}`);
     }
+  } catch (error) {
+    console.error('Error in deleteProject:', error);
+    throw error;
   }
+};
 
-  // Create the project
-  const project = await projectService.createProject({
-    user_id: userId,
-    template_id: templateId,
-    name: projectName,
-    slug,
-    domain: `${slug}.solsites.fun`,
-    data: defaultData,
-    is_published: false
-  })
+// =====================================================
+// TEMPLATE OPERATIONS
+// =====================================================
 
-  return project
-}
+export const getTemplates = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('templates')
+      .select('*')
+      .order('name');
+
+    if (error) {
+      console.error('Error fetching templates:', error);
+      throw new Error(`Failed to fetch templates: ${error.message}`);
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getTemplates:', error);
+    throw error;
+  }
+};
+
+export const getTemplateBySlug = async (slug: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('templates')
+      .select('*')
+      .eq('slug', slug)
+      .single();
+
+    if (error) {
+      console.error('Error fetching template:', error);
+      throw new Error(`Failed to fetch template: ${error.message}`);
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Error in getTemplateBySlug:', error);
+    throw error;
+  }
+};
+
+// =====================================================
+// USER PROJECTS LISTING
+// =====================================================
+
+export const getUserProjects = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('user_projects')
+      .select(`
+        id,
+        name,
+        slug,
+        template_id,
+        is_published,
+        created_at,
+        updated_at,
+        templates (
+          name,
+          slug,
+          colors
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching user projects:', error);
+      throw new Error(`Failed to fetch user projects: ${error.message}`);
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getUserProjects:', error);
+    throw error;
+  }
+};
+
+// =====================================================
+// PUBLISHED PROJECT ACCESS (for previews)
+// =====================================================
+
+export const getPublishedProject = async (slug: string): Promise<ProjectData | null> => {
+  try {
+    // First get the project ID
+    const { data: project, error: projectError } = await supabase
+      .from('user_projects')
+      .select('id')
+      .eq('slug', slug)
+      .eq('is_published', true)
+      .single();
+
+    if (projectError || !project) {
+      return null;
+    }
+
+    // Then load the full project data
+    return await loadProjectData(project.id);
+  } catch (error) {
+    console.error('Error in getPublishedProject:', error);
+    return null;
+  }
+};
+
+// =====================================================
+// ANALYTICS (keeping existing structure)
+// =====================================================
+
+export const trackPageView = async (projectId: string, visitorData: any) => {
+  try {
+    const { error } = await supabase
+      .from('page_views')
+      .insert({
+        project_id: projectId,
+        visitor_id: visitorData.visitorId,
+        page_url: visitorData.pageUrl,
+        referrer: visitorData.referrer,
+        user_agent: visitorData.userAgent,
+        ip_address: visitorData.ipAddress
+      });
+
+    if (error) {
+      console.error('Error tracking page view:', error);
+    }
+  } catch (error) {
+    console.error('Error in trackPageView:', error);
+  }
+};
+
+export const getProjectAnalytics = async (projectId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('page_views')
+      .select('*')
+      .eq('project_id', projectId)
+      .order('viewed_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching analytics:', error);
+      throw new Error(`Failed to fetch analytics: ${error.message}`);
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error('Error in getProjectAnalytics:', error);
+    throw error;
+  }
+};

@@ -1,4 +1,5 @@
 import { Users, Zap, Lock, Eye } from 'lucide-react'
+import { getIconComponent } from '@/lib/icons'
 
 interface ClassicAboutProps {
   title: string
@@ -11,10 +12,7 @@ interface ClassicAboutProps {
   primaryColor: string
   secondaryColor: string
   accentColor: string
-  onEdit?: {
-    title?: (value: string) => void
-    content?: (value: string) => void
-  }
+
 }
 
 export const ClassicAbout = ({
@@ -26,17 +24,11 @@ export const ClassicAbout = ({
   accentColor
 }: ClassicAboutProps) => {
   const getIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'users':
-        return <Users className="w-8 h-8" />
-      case 'zap':
-        return <Zap className="w-8 h-8" />
-      case 'lock':
-        return <Lock className="w-8 h-8" />
-      case 'eye':
-        return <Eye className="w-8 h-8" />
-      default:
-        return <Users className="w-8 h-8" />
+    try {
+      const Icon = getIconComponent(iconName || 'users')
+      return <Icon className="w-8 h-8" />
+    } catch {
+      return <Users className="w-8 h-8" />
     }
   }
 
@@ -56,7 +48,7 @@ export const ClassicAbout = ({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {features.map((feature, index) => (
+          {(features || []).map((feature, index) => (
             <div 
               key={index}
               className="text-center p-8 rounded-2xl classic-hover"

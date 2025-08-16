@@ -1,85 +1,11 @@
 "use client"
 
 import { useParams } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { NeonTemplate } from '@/components/templates/neon/NeonTemplate'
-import { ClassicTemplate } from '@/components/templates/classic/ClassicTemplate'
-import { MinimalTemplate } from '@/components/templates/minimal/MinimalTemplate'
-import { getTemplateById } from '@/data/templates'
+import { useEffect, useState, useCallback } from 'react'
+import { loadProjectData, ProjectData, ProjectBlock } from '@/lib/services'
+import { MemecoinTemplate } from '@/components/templates/memecoin/MemecoinTemplate'
+import { getTemplateBySlug } from '@/data/templates'
 import { trackPageView, getCurrentSessionId, endSession } from '@/lib/analytics'
-
-interface ProjectData {
-  id: string
-  name: string
-  template: string
-  colors: {
-    primary: string
-    secondary: string
-    accent: string
-  }
-  content: {
-    hero: {
-      title: string
-      subtitle: string
-      description: string
-    }
-    about: {
-      title: string
-      description: string
-      features: Array<{
-        title: string
-        description: string
-        icon: string
-      }>
-    }
-    tokenomics: {
-      title: string
-      description: string
-      totalSupply: string
-      distribution: Array<{
-        name: string
-        percentage: number
-        color: string
-      }>
-    }
-    team: {
-      title: string
-      description: string
-      members: Array<{
-        name: string
-        role: string
-        avatar: string
-        social: {
-          twitter?: string
-        }
-      }>
-    }
-    social: {
-      twitter?: string
-      telegram?: string
-      website?: string
-    }
-  }
-}
-
-interface SectionData {
-  id: string
-  name: string
-  type: string
-  order_index: number
-  is_enabled: boolean
-  settings: any
-  blocks: Array<{
-    id: string
-    name: string
-    type: string
-    order_index: number
-    is_enabled: boolean
-    settings: any
-    content: any
-  }>
-}
 
 export default function ProductionPreviewPage() {
   const params = useParams()
@@ -87,96 +13,37 @@ export default function ProductionPreviewPage() {
   const versionId = params.versionId as string
   
   const [projectData, setProjectData] = useState<ProjectData | null>(null)
-  const [sections, setSections] = useState<SectionData[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [hasTrackedInitialView, setHasTrackedInitialView] = useState(false)
 
-  // Load project data and sections
+  // Load project data using the new unified system
   useEffect(() => {
     const loadProject = async () => {
       try {
         setIsLoading(true)
         setError(null)
 
-        console.log('🔍 Loading production preview for project:', projectId, 'version:', versionId)
+        console.log('🔍 Loading project for versioned preview with ID:', projectId)
 
-        // Get project from database
-        const { data: project, error: projectError } = await supabase
-          .from('user_projects')
-          .select('*')
-          .eq('id', projectId)
-          .single()
-
-        if (projectError) {
-          console.error('❌ Error loading project:', projectError)
-          throw new Error('Project not found')
-        }
-
-        if (!project) {
-          throw new Error('Project not found')
-        }
-
-        console.log('✅ Project loaded for production preview:', project)
-
-        // Parse the project data
-        const parsedData = project.data as ProjectData
-        setProjectData(parsedData)
-
-        // Load user-specific sections and blocks
-        const { data: userSectionsData, error: sectionsError } = await supabase
-          .from('user_project_sections')
-          .select(`
-            id,
-            name,
-            type,
-            order_index,
-            is_enabled,
-            settings,
-            user_project_blocks (
-              id,
-              name,
-              type,
-              order_index,
-              is_enabled,
-              settings,
-              content
-            )
-          `)
-          .eq('project_id', projectId)
-          .order('order_index')
-
-        if (sectionsError) {
-          console.error('❌ Error loading user sections:', sectionsError)
-          throw new Error('Failed to load project sections')
-        }
-
-        // Transform sections data and filter enabled sections/blocks
-        const transformedSections = userSectionsData
-          ?.filter(section => section.is_enabled)
-          .map(section => ({
-            ...section,
-            blocks: section.user_project_blocks
-              ?.filter(block => block.is_enabled)
-              .sort((a: any, b: any) => a.order_index - b.order_index) || []
-          }))
-          .sort((a: any, b: any) => a.order_index - b.order_index) || []
-
-        console.log('✅ Loaded production sections:', transformedSections)
-        setSections(transformedSections)
+        // Use the same loadProjectData function as the editor
+        const data = await loadProjectData(projectId)
+        setProjectData(data)
+        
+        console.log('✅ Project loaded for versioned preview:', data)
         
       } catch (err) {
-        console.error('❌ Error loading project for production preview:', err)
+        console.error('❌ Error loading project for versioned preview:', err)
         setError(err instanceof Error ? err.message : 'Failed to load project')
       } finally {
         setIsLoading(false)
       }
     }
 
-    if (projectId && versionId) {
+    if (projectId) {
       loadProject()
     }
-  }, [projectId, versionId])
+  }, [projectId])
 
   // Track page view when project data is loaded
   useEffect(() => {
@@ -184,185 +51,311 @@ export default function ProductionPreviewPage() {
     const pageUrl = typeof window !== 'undefined' ? window.location.href : `/preview/${projectId}/${versionId}`
     trackPageView(projectId, pageUrl)
     setHasTrackedInitialView(true)
-  }, [projectId, versionId, projectData, hasTrackedInitialView])
+  }, [projectId, projectData, hasTrackedInitialView, versionId])
 
   // End session on tab close/unload
   useEffect(() => {
     const handleBeforeUnload = () => {
       const sessionId = getCurrentSessionId()
       if (sessionId) {
-        const end = async () => {
-          try { await endSession(sessionId) } catch {}
-        }
-        end()
+        endSession(sessionId)
       }
     }
 
-    if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', handleBeforeUnload)
-    }
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('beforeunload', handleBeforeUnload)
-      }
-    }
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [])
 
-  // Transform project data to template format with sections
-  const transformProjectData = (data: ProjectData) => {
-    const normalizedTeam = ((data.content?.team?.members || [
-      { name: 'Alex Johnson', role: 'Founder & CEO', avatar: '👨‍💼', social: '@alexjohnson' },
-      { name: 'Sarah Chen', role: 'Lead Developer', avatar: '👩‍💻', social: '@sarahchen' },
-      { name: 'Mike Rodriguez', role: 'Marketing Director', avatar: '👨‍💼', social: '@mikerodriguez' }
-    ]) as any[]).map((member: any) => ({
-      name: member.name,
-      role: member.role,
-      avatar: member.avatar,
-      social: typeof member.social === 'string' ? member.social : member.social?.twitter || ''
-    }))
+  // Transform project data to template format (same as editor)
+  const transformToTemplateData = useCallback((projectData: ProjectData) => {
+    if (!projectData || !projectData.blocks) return null;
 
-    const normalizedRoadmap = (((data as any).content?.roadmap?.phases) || [
-      { title: 'Phase 1: Launch', description: 'Initial token launch and community building', date: 'Q1 2024', completed: true },
-      { title: 'Phase 2: Development', description: 'Core features and platform development', date: 'Q2 2024', completed: false },
-      { title: 'Phase 3: Expansion', description: 'Partnerships and ecosystem growth', date: 'Q3 2024', completed: false }
-    ])
+    // Get template info
+    const template = getTemplateBySlug('memecoin');
+    if (!template) return null;
 
-    return {
+    // Transform blocks to template data structure
+    const templateData: any = {
       tokenInfo: {
-        name: data.name || 'MEME Token',
-        symbol: (data as any).tokenInfo?.symbol || 'MEME',
-        contractAddress: (data as any).tokenInfo?.contractAddress || '0x1234567890abcdef1234567890abcdef12345678',
-        description: data.content?.hero?.description || 'Join the revolution with our innovative meme coin that combines humor, community, and cutting-edge blockchain technology.'
+        name: "HappyMeal",
+        symbol: "HAPPY",
+        contractAddress: "0x1234567890abcdef1234567890abcdef12345678",
+        description: "The viral crypto sensation taking Japanese Twitter by storm! 27M+ views in a single day!",
+        totalSupply: "1,000,000,000",
+        circulatingSupply: "800,000,000",
+        price: "$0.0025",
+        marketCap: "$2,000,000"
       },
       branding: {
-        primaryColor: data.colors?.primary || (getTemplateById(data.template as any) as any)?.colors?.primary || '#FF6B6B',
-        secondaryColor: data.colors?.secondary || (getTemplateById(data.template as any) as any)?.colors?.secondary || '#4ECDC4',
-        accentColor: data.colors?.accent || (getTemplateById(data.template as any) as any)?.colors?.accent || '#45B7D1',
-        logo: (data as any).branding?.logo || '',
-        banner: (data as any).branding?.banner || ''
+        primaryColor: "#FF6B35",
+        secondaryColor: "#E55A2B",
+        accentColor: "#FFD700",
+        logo: "🍔",
+        banner: "/api/placeholder/1200/400",
+        favicon: "🍔"
       },
       social: {
-        twitter: data.content?.social?.twitter || 'https://twitter.com/memecoin',
-        telegram: data.content?.social?.telegram || 'https://t.me/memecoin',
-        discord: (data.content as any)?.social?.discord || 'https://discord.gg/memetoken',
-        website: data.content?.social?.website || 'https://memetoken.com'
+        twitter: "https://twitter.com/happymealtoken",
+        telegram: "https://t.me/happymealtoken",
+        discord: "https://discord.gg/happymealtoken",
+        website: "https://happymealtoken.com"
       },
+      header: {},
       content: {
-        hero: {
-          title: data.content?.hero?.title || 'Welcome to the Future',
-          subtitle: data.content?.hero?.subtitle || 'The Next Big Thing in Crypto',
-          description: data.content?.hero?.description || 'Join the revolution with our innovative meme coin that combines humor, community, and cutting-edge blockchain technology.'
-        },
-        about: {
-          title: data.content?.about?.title || 'About Our Project',
-          content: data.content?.about?.description || 'We are building something special that will change the crypto landscape forever.'
-        },
-        features: data.content?.about?.features || [
-          { title: 'Community Driven', description: 'Built by the community, for the community', icon: '👥' },
-          { title: 'Transparent', description: 'All transactions and decisions are public', icon: '🔍' },
-          { title: 'Innovative', description: 'Pushing the boundaries of what is possible', icon: '💡' }
+        features: [
+          {
+            title: "Fair Launch",
+            description: "Community-driven launch with equal opportunity for all investors.",
+            icon: "⚖️",
+            color: "#FF6B35"
+          },
+          {
+            title: "Viral Momentum",
+            description: "Riding the wave of the biggest Japanese social media trend.",
+            icon: "🚀",
+            color: "#E55A2B"
+          },
+          {
+            title: "Solana Network",
+            description: "Fast, low-cost transactions on the most efficient blockchain.",
+            icon: "⚡",
+            color: "#FFD700"
+          },
+          {
+            title: "Meme Power",
+            description: "Capturing the zeitgeist of Japanese internet culture with authentic viral content.",
+            icon: "🎭",
+            color: "#FF6B35"
+          }
         ],
-        tokenomics: {
-          title: data.content?.tokenomics?.title || 'Tokenomics',
-          description: data.content?.tokenomics?.description || 'Fair and transparent token distribution',
-          totalSupply: data.content?.tokenomics?.totalSupply || '1,000,000,000',
-          distribution: data.content?.tokenomics?.distribution || [
-            { name: 'Liquidity', percentage: 40, color: '#FF6B6B' },
-            { name: 'Community', percentage: 30, color: '#4ECDC4' },
-            { name: 'Team', percentage: 15, color: '#45B7D1' },
-            { name: 'Marketing', percentage: 10, color: '#96CEB4' },
-            { name: 'Development', percentage: 5, color: '#FFEAA7' }
-          ]
-        },
-        team: normalizedTeam,
-        roadmap: normalizedRoadmap
-      },
-      sections: sections
+        roadmap: [
+          {
+            title: "Viral Launch",
+            description: "Token launch coinciding with peak social media virality",
+            date: "Q1 2024",
+            completed: true,
+            items: ["27M+ Twitter views", "Trending #1 in Japan", "Community building"]
+          },
+          {
+            title: "Exchange Listings",
+            description: "Major DEX and CEX listings to increase accessibility",
+            date: "Q2 2024",
+            completed: false,
+            items: ["Raydium listing", "Jupiter integration", "CEX partnerships"]
+          },
+          {
+            title: "NFT Collection",
+            description: "Exclusive Happy Meal themed NFT collection for holders",
+            date: "Q3 2024",
+            completed: false,
+            items: ["10,000 unique NFTs", "Holder benefits", "Rare toy variants"]
+          },
+          {
+            title: "Global Expansion",
+            description: "Taking the viral sensation worldwide",
+            date: "Q4 2024",
+            completed: false,
+            items: ["International marketing", "Partnerships", "Ecosystem growth"]
+          }
+        ],
+        team: [
+          {
+            name: "Anonymous",
+            role: "Founder & Meme Lord",
+            avatar: "🎭",
+            social: "https://twitter.com/happymealfounder",
+            bio: "The mysterious creator behind the viral sensation"
+          },
+          {
+            name: "Community",
+            role: "The Real Heroes",
+            avatar: "👥",
+            social: "https://twitter.com/happymealcommunity",
+            bio: "27M+ strong community driving the viral movement"
+          }
+        ]
+      }
+    };
+
+    // Map blocks to template data
+    projectData.blocks.forEach(block => {
+      switch (block.type) {
+        case 'header':
+          templateData.header = {
+            displayName: block.content.displayName || "HappyMeal",
+            colors: block.content.colors || { primary: "#FF6B35", secondary: "#E55A2B" },
+            navItems: block.content.navigation || [],
+            cta: block.content.cta || { text: 'Buy $HAPPY Now', href: '#', variant: 'primary' },
+            logo: block.content.logo || "🍔"
+          };
+          break;
+        case 'hero':
+          templateData.content.hero = {
+            title: block.content.title || "HappyMeal",
+            subtitle: block.content.subtitle || "ハッピーセット",
+            description: block.content.description || "The viral crypto sensation taking Japanese Twitter by storm! 27M+ views in a single day!",
+            stats: block.content.stats || [],
+            primaryButton: block.content.primaryButton || { text: "Buy $HAPPY Now", href: "#", variant: "primary" },
+            secondaryButton: block.content.secondaryButton || { text: "Join Community", href: "#", variant: "secondary" },
+            tokenSymbol: block.content.tokenSymbol || "HAPPY",
+            showTokenPill: block.content.showTokenPill || true,
+            showStats: block.content.showStats || true,
+            showPrimaryButton: block.content.showPrimaryButton || true,
+            showSecondaryButton: block.content.showSecondaryButton || true,
+            showTokenVisual: block.content.showTokenVisual || true,
+
+            backgroundImage: block.content.backgroundImage || "/api/placeholder/1920/1080"
+          };
+          break;
+        case 'about':
+          templateData.content.about = {
+            title: block.content.title || "The Viral Story",
+            description: block.content.description || "What started as a simple Happy Meal toy craze became Japan's biggest social media controversy.",
+            content: block.content.content || "The viral story of how a simple McDonald's Happy Meal toy created a nationwide frenzy in Japan, leading to massive social media engagement and the birth of the most talked-about meme coin of 2024.",
+            contractAddress: block.content.contractAddress || "0x1234567890abcdef1234567890abcdef12345678",
+            ctaTitle: block.content.ctaTitle || "Are the toys really worth it?",
+            ctaDescription: block.content.ctaDescription || "Original Price: ¥500 | Resale Price: ??? | 600% Markup! 🔥",
+            ctaPrimary: block.content.ctaPrimary || { text: "View Chart", href: "#", variant: "primary" },
+            ctaSecondary: block.content.ctaSecondary || { text: "See the Trend", href: "#", variant: "secondary" },
+            features: block.content.features || []
+          };
+          break;
+        case 'tokenomics':
+          templateData.content.tokenomics = {
+            title: block.content.title || "Tokenomics",
+            description: block.content.description || "Fair and transparent token distribution designed for long-term success",
+            totalSupply: block.content.totalSupply || "1,000,000,000 HAPPY",
+            distribution: block.content.distribution || []
+          };
+          break;
+        case 'roadmap':
+          templateData.content.roadmap = Array.isArray(block.content.phases) ? block.content.phases : [
+            {
+              title: "Viral Launch",
+              description: "Token launch coinciding with peak social media virality",
+              date: "Q1 2024",
+              completed: true,
+              items: ["27M+ Twitter views", "Trending #1 in Japan", "Community building"]
+            },
+            {
+              title: "Exchange Listings",
+              description: "Major DEX and CEX listings to increase accessibility",
+              date: "Q2 2024",
+              completed: false,
+              items: ["Raydium listing", "Jupiter integration", "CEX partnerships"]
+            },
+            {
+              title: "NFT Collection",
+              description: "Exclusive Happy Meal themed NFT collection for holders",
+              date: "Q3 2024",
+              completed: false,
+              items: ["10,000 unique NFTs", "Holder benefits", "Rare toy variants"]
+            },
+            {
+              title: "Global Expansion",
+              description: "Taking the viral sensation worldwide",
+              date: "Q4 2024",
+              completed: false,
+              items: ["International marketing", "Partnerships", "Ecosystem growth"]
+            }
+          ];
+          break;
+        case 'team':
+          templateData.content.team = Array.isArray(block.content.members) ? block.content.members : [
+            {
+              name: "Anonymous",
+              role: "Founder & Meme Lord",
+              avatar: "🎭",
+              social: "https://twitter.com/happymealfounder",
+              bio: "The mysterious creator behind the viral sensation"
+            },
+            {
+              name: "Community",
+              role: "The Real Heroes",
+              avatar: "👥",
+              social: "https://twitter.com/happymealcommunity",
+              bio: "27M+ strong community driving the viral movement"
+            }
+          ];
+          break;
+        case 'community':
+          templateData.content.community = {
+            title: block.content.title || "Join the Community",
+            description: block.content.description || "Be part of the viral phenomenon that's taking Japan and the world by storm",
+            cards: block.content.cards || []
+          };
+          break;
+        case 'token-details':
+          templateData.content.tokenDetails = {
+            title: block.content.title || "Token Details",
+            description: block.content.description || "Join the viral sensation that's taking crypto by storm.",
+            contractAddress: block.content.contractAddress || "0x1234567890abcdef1234567890abcdef12345678",
+            features: block.content.features || []
+          };
+          break;
+      }
+    });
+
+    return { template, data: templateData };
+  }, [projectData]);
+
+  // Render the project
+  const renderProject = () => {
+    if (!projectData) return null;
+
+    const templateData = transformToTemplateData(projectData);
+    if (!templateData) {
+      return (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Template Not Found</h1>
+            <p className="text-gray-600">The template for this project could not be loaded.</p>
+          </div>
+        </div>
+      );
     }
-  }
 
-  const renderTemplate = () => {
-    if (!projectData) return null
-
-    const templateData = transformProjectData(projectData)
-
-    switch (projectData.template) {
-      case 'neon':
-        return <NeonTemplate projectData={templateData} />
-      case 'classic':
-        return <ClassicTemplate projectData={templateData} />
-      case 'minimal':
-        return <MinimalTemplate projectData={templateData} />
-      default:
-        return <div className="p-8 text-center text-gray-500">Template not found</div>
-    }
-  }
+    return (
+      <MemecoinTemplate
+        template={templateData.template}
+        data={templateData.data}
+        preview={false} // This is production preview, not editor preview
+      />
+    );
+  };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading your website...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h1 className="text-xl font-semibold text-gray-900">Loading Preview...</h1>
+          <p className="text-gray-600 mt-2">Preparing your project for preview</p>
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Error Loading Website</h1>
+          <h1 className="text-2xl font-bold text-red-600 mb-4">Error Loading Preview</h1>
           <p className="text-gray-600 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Try Again
+          </button>
         </div>
       </div>
-    )
+    );
   }
 
-  if (!projectData) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-500 text-6xl mb-4">❌</div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Website Not Found</h1>
-          <p className="text-gray-600 mb-4">The website you're looking for doesn't exist.</p>
-        </div>
-      </div>
-    )
-  }
-
-  // Production-like preview - no editor UI, just the website
   return (
-    <div className="min-h-screen bg-white relative">
-      {renderTemplate()}
-      
-      {/* Preview Banner */}
-      <div className="fixed bottom-0 left-0 right-0 bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-6 shadow-lg z-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-3">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-                <span className="text-lg font-bold">PREVIEW MODE</span>
-              </div>
-              <span className="text-base opacity-90">
-                This is a preview version. Purchase required for live website.
-              </span>
-            </div>
-            <div className="flex items-center space-x-6">
-              <span className="text-sm opacity-75">Version: {versionId}</span>
-            </div>
-          </div>
-          <div className="text-sm opacity-80">
-            This website is currently in preview mode and requires payment to be published live. 
-            All content and design are subject to change until the website is purchased and activated.
-          </div>
-        </div>
-      </div>
+    <div className="min-h-screen bg-white">
+      {renderProject()}
     </div>
-  )
+  );
 }

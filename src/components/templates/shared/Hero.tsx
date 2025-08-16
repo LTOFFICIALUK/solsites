@@ -11,7 +11,13 @@ interface HeroProps {
   backgroundImage?: string
   showVideo?: boolean
   showStats?: boolean
-  stats?: {
+  showTokenPill?: boolean
+  showPrimaryButton?: boolean
+  primaryButton?: { text: string; href: string }
+  showSecondaryButton?: boolean
+  secondaryButton?: { text: string; href: string }
+
+  stats?: Array<{ value: string; label: string; color: string }> | {
     holders: string
     marketCap: string
     volume24h: string
@@ -19,11 +25,7 @@ interface HeroProps {
   ctaText?: string
   onCtaClick?: () => void
   className?: string
-  onEdit?: {
-    title?: (value: string) => void
-    subtitle?: (value: string) => void
-    description?: (value: string) => void
-  }
+
 }
 
 export const Hero = ({
@@ -37,11 +39,17 @@ export const Hero = ({
   backgroundImage,
   showVideo = false,
   showStats = false,
+  showTokenPill = true,
+  showPrimaryButton = true,
+  primaryButton = { text: 'Buy Now', href: '' },
+  showSecondaryButton = true,
+  secondaryButton = { text: 'Watch Video', href: '' },
+
   stats,
   ctaText = "Buy Now",
   onCtaClick,
   className = "",
-  onEdit
+
 }: HeroProps) => {
   return (
     <section 
@@ -67,26 +75,23 @@ export const Hero = ({
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         <div className="max-w-4xl mx-auto">
           {/* Badge */}
-          <div 
-            className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium mb-8"
-            style={{ 
-              backgroundColor: `${accentColor}20`,
-              color: accentColor,
-              border: `1px solid ${accentColor}40`
-            }}
-          >
-            <TrendingUp className="w-4 h-4 mr-2" />
-            {tokenSymbol} Token
-          </div>
+          {showTokenPill && (
+            <div 
+              className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium mb-8"
+              style={{ 
+                backgroundColor: `${accentColor}20`,
+                color: accentColor,
+                border: `1px solid ${accentColor}40`
+              }}
+            >
+              <TrendingUp className="w-4 h-4 mr-2" />
+              {tokenSymbol}
+            </div>
+          )}
 
           {/* Main Content */}
           <h1 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
-            <span
-              className="block"
-              contentEditable={!!onEdit?.title}
-              suppressContentEditableWarning
-              onBlur={(e) => onEdit?.title?.(e.currentTarget.textContent || '')}
-            >
+            <span className="block">
               {title}
             </span>
             <span
@@ -95,44 +100,38 @@ export const Hero = ({
                 backgroundImage: `linear-gradient(135deg, var(--brand-primary, ${primaryColor}), var(--brand-secondary, ${secondaryColor}))`
               }}
             >
-              <span
-                contentEditable={!!onEdit?.subtitle}
-                suppressContentEditableWarning
-                onBlur={(e) => onEdit?.subtitle?.(e.currentTarget.textContent || '')}
-              >
-                {subtitle}
-              </span>
+              {subtitle}
             </span>
           </h1>
 
-          <p
-            className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto"
-            contentEditable={!!onEdit?.description}
-            suppressContentEditableWarning
-            onBlur={(e) => onEdit?.description?.(e.currentTarget.textContent || '')}
-          >
+          <p className="text-xl md:text-2xl text-gray-600 mb-8 max-w-3xl mx-auto">
             {description}
           </p>
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <button
-              onClick={onCtaClick}
-              className="px-8 py-4 rounded-full font-semibold text-lg transition-all duration-300 transform hover:scale-105"
-              style={{
-                backgroundColor: primaryColor,
-                color: 'white',
-                boxShadow: `0 10px 30px ${primaryColor}40`
-              }}
-            >
-              {ctaText}
-              <ArrowRight className="inline-block ml-2 w-5 h-5" />
-            </button>
+            {showPrimaryButton && (
+              <button
+                onClick={() => primaryButton.href && window.open(primaryButton.href, '_blank')}
+                className="px-8 py-4 rounded-full font-semibold text-lg transition-all duration-300 transform hover:scale-105"
+                style={{
+                  backgroundColor: primaryColor,
+                  color: 'white',
+                  boxShadow: `0 10px 30px ${primaryColor}40`
+                }}
+              >
+                {primaryButton.text}
+                <ArrowRight className="inline-block ml-2 w-5 h-5" />
+              </button>
+            )}
             
-            {showVideo && (
-              <button className="px-8 py-4 rounded-full font-semibold text-lg border-2 transition-all duration-300 hover:bg-gray-50">
+            {showSecondaryButton && (
+              <button 
+                onClick={() => secondaryButton.href && window.open(secondaryButton.href, '_blank')}
+                className="px-8 py-4 rounded-full font-semibold text-lg border-2 transition-all duration-300 hover:bg-gray-50"
+              >
                 <Play className="inline-block mr-2 w-5 h-5" />
-                Watch Video
+                {secondaryButton.text}
               </button>
             )}
           </div>
@@ -140,41 +139,55 @@ export const Hero = ({
           {/* Stats */}
           {showStats && stats && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-2xl mx-auto">
-              <div className="text-center">
-                <div className="text-3xl font-bold mb-2" style={{ color: primaryColor }}>
-                  {stats.holders}
-                </div>
-                <div className="text-gray-600">Holders</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold mb-2" style={{ color: secondaryColor }}>
-                  {stats.marketCap}
-                </div>
-                <div className="text-gray-600">Market Cap</div>
-              </div>
-              <div className="text-center">
-                <div className="text-3xl font-bold mb-2" style={{ color: accentColor }}>
-                  {stats.volume24h}
-                </div>
-                <div className="text-gray-600">24h Volume</div>
-              </div>
+              {Array.isArray(stats) ? (
+                // Dynamic stats array with labels
+                stats.map((stat, index) => {
+                  const getColorByType = (colorType: string) => {
+                    switch (colorType) {
+                      case 'primary': return primaryColor
+                      case 'secondary': return secondaryColor
+                      case 'accent': return accentColor
+                      default: return primaryColor
+                    }
+                  }
+                  return (
+                    <div key={index} className="text-center">
+                      <div className="text-3xl font-bold mb-2" style={{ color: getColorByType(stat.color) }}>
+                        {stat.value}
+                      </div>
+                      <div className="text-gray-600">{stat.label}</div>
+                    </div>
+                  )
+                })
+              ) : (
+                // Legacy stats object format
+                <>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold mb-2" style={{ color: primaryColor }}>
+                      {stats.holders}
+                    </div>
+                    <div className="text-gray-600">Holders</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold mb-2" style={{ color: secondaryColor }}>
+                      {stats.marketCap}
+                    </div>
+                    <div className="text-gray-600">Market Cap</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-3xl font-bold mb-2" style={{ color: accentColor }}>
+                      {stats.volume24h}
+                    </div>
+                    <div className="text-gray-600">24h Volume</div>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Scroll Indicator */}
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
-        <div 
-          className="w-6 h-10 rounded-full border-2 flex justify-center"
-          style={{ borderColor: primaryColor }}
-        >
-          <div 
-            className="w-1 h-3 rounded-full mt-2 animate-pulse"
-            style={{ backgroundColor: primaryColor }}
-          ></div>
-        </div>
-      </div>
+
     </section>
   )
 }

@@ -1,855 +1,888 @@
-"use client"
+'use client';
 
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react';
+import { ProjectBlock } from '@/lib/services';
+import ColorPicker from './ColorPicker';
 
 interface BlockSettingsProps {
-  block: any
-  template?: any
-  onSettingsChange: (settings: any) => void
-  onContentChange: (content: any) => void
-  onToggleEnabled?: (blockId: string, enabled: boolean) => void
+  block: ProjectBlock;
+  onContentUpdate: (blockId: string, content: Record<string, any>) => void;
+  onSettingsUpdate: (blockId: string, settings: Record<string, any>) => void;
+  onToggleEnabled: (blockId: string, isEnabled: boolean) => void;
 }
 
-export function BlockSettings({ block, template, onSettingsChange, onContentChange, onToggleEnabled }: BlockSettingsProps) {
-  const [settings, setSettings] = useState(block?.settings || {})
-  const [content, setContent] = useState(block?.content || {})
+const BlockSettings: React.FC<BlockSettingsProps> = ({
+  block,
+  onContentUpdate,
+  onSettingsUpdate,
+  onToggleEnabled
+}) => {
+  const [localContent, setLocalContent] = useState(block.content);
 
+  // Update local content when block changes
   useEffect(() => {
-    console.log('🔄 BlockSettings received new block:', block)
-    setSettings(block?.settings || {})
-    setContent(block?.content || {})
-  }, [block])
-
-  const handleSettingChange = (key: string, value: any) => {
-    const newSettings = { ...settings, [key]: value }
-    setSettings(newSettings)
-    onSettingsChange(newSettings)
-  }
+    setLocalContent(block.content);
+  }, [block]);
 
   const handleContentChange = (key: string, value: any) => {
-    console.log('🔄 BlockSettings content change:', { key, value, blockId: block?.id, template: template?.slug })
-    const newContent = { ...content, [key]: value }
-    setContent(newContent)
-    onContentChange(newContent)
-  }
+    const updatedContent = { ...localContent, [key]: value };
+    setLocalContent(updatedContent);
+    onContentUpdate(block.id!, updatedContent);
+  };
 
-  if (!block) {
-    return (
-      <div className="p-6 text-center text-gray-500">
-        <p>No block selected</p>
+  const handleArrayItemChange = (key: string, index: number, value: any) => {
+    const array = [...(localContent[key] || [])];
+    array[index] = value;
+    handleContentChange(key, array);
+  };
+
+  const handleArrayItemAdd = (key: string, defaultItem: any) => {
+    const array = [...(localContent[key] || []), defaultItem];
+    handleContentChange(key, array);
+  };
+
+  const handleArrayItemRemove = (key: string, index: number) => {
+    const array = [...(localContent[key] || [])];
+    array.splice(index, 1);
+    handleContentChange(key, array);
+  };
+
+  const renderField = (key: string, value: any, label: string, type: string = 'text') => {
+    switch (type) {
+      case 'text':
+        return (
+          <div key={key} className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {label}
+            </label>
+            <input
+              type="text"
+              value={value || ''}
+              onChange={(e) => handleContentChange(key, e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        );
+
+      case 'textarea':
+        return (
+          <div key={key} className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {label}
+            </label>
+            <textarea
+              value={value || ''}
+              onChange={(e) => handleContentChange(key, e.target.value)}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        );
+
+      case 'color':
+        return (
+          <div key={key} className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {label}
+            </label>
+            <ColorPicker
+              color={value || '#000000'}
+              onChange={(color) => handleContentChange(key, color)}
+            />
+          </div>
+        );
+
+      case 'url':
+        return (
+          <div key={key} className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {label}
+            </label>
+            <input
+              type="url"
+              value={value || ''}
+              onChange={(e) => handleContentChange(key, e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        );
+
+      case 'boolean':
+        return (
+          <div key={key} className="mb-4">
+            <label className="flex items-center">
+              <input
+                type="checkbox"
+                checked={Boolean(value)}
+                onChange={(e) => handleContentChange(key, e.target.checked)}
+                className="mr-2"
+              />
+              <span className="text-sm font-medium text-gray-700">{label}</span>
+            </label>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const renderNavItem = (item: any, index: number) => (
+    <div key={index} className="border border-gray-200 rounded-md p-3 mb-2">
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-sm font-medium">Navigation Item {index + 1}</span>
+        <button
+          onClick={() => handleArrayItemRemove('navItems', index)}
+          className="text-red-500 hover:text-red-700"
+        >
+          Remove
+        </button>
       </div>
-    )
-  }
+      <input
+        type="text"
+        value={item.text || ''}
+        onChange={(e) => handleArrayItemChange('navItems', index, { ...item, text: e.target.value })}
+        placeholder="Menu text"
+        className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+      />
+      <input
+        type="text"
+        value={item.href || ''}
+        onChange={(e) => handleArrayItemChange('navItems', index, { ...item, href: e.target.value })}
+        placeholder="Link URL"
+        className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 placeholder:text-gray-500"
+      />
+    </div>
+  );
 
-  const renderContentFields = () => {
-    const blockTypeRaw = ((block?.type || block?.name || '') as string).toLowerCase()
-    const isHeaderBlock = blockTypeRaw.includes('nav') || blockTypeRaw.includes('header')
-    switch (isHeaderBlock ? 'navbar' : blockTypeRaw) {
+  const renderFeature = (feature: any, index: number) => (
+    <div key={index} className="border border-gray-200 rounded-md p-3 mb-2">
+      <div className="flex justify-between items-center mb-2">
+        <span className="text-sm font-medium text-gray-900">Feature {index + 1}</span>
+        <button
+          onClick={() => handleArrayItemRemove('features', index)}
+          className="text-red-500 hover:text-red-700"
+        >
+          Remove
+        </button>
+      </div>
+      <input
+        type="text"
+        value={feature.title || ''}
+        onChange={(e) => handleArrayItemChange('features', index, { ...feature, title: e.target.value })}
+        placeholder="Feature title"
+        className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+      />
+      <textarea
+        value={feature.description || ''}
+        onChange={(e) => handleArrayItemChange('features', index, { ...feature, description: e.target.value })}
+        placeholder="Feature description"
+        rows={2}
+        className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+      />
+      <input
+        type="text"
+        value={feature.icon || ''}
+        onChange={(e) => handleArrayItemChange('features', index, { ...feature, icon: e.target.value })}
+        placeholder="Icon (emoji)"
+        className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+      />
+      <ColorPicker
+        color={feature.color || '#FF6B35'}
+        onChange={(color) => handleArrayItemChange('features', index, { ...feature, color })}
+      />
+    </div>
+  );
+
+  const renderSocialLink = (platform: string, url: string) => (
+    <div key={platform} className="mb-2">
+      <label className="block text-sm font-medium text-gray-700 mb-1 capitalize">
+        {platform}
+      </label>
+      <input
+        type="url"
+        value={url || ''}
+        onChange={(e) => handleContentChange('social', { ...localContent.social, [platform]: e.target.value })}
+        placeholder={`${platform} URL`}
+        className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 placeholder:text-gray-500"
+      />
+    </div>
+  );
+
+  const renderBlockSpecificSettings = () => {
+    switch (block.type) {
       case 'navbar':
         return (
-          <div className="space-y-6">
-            {/* Links */}
+          <div className="space-y-4">
+            {renderField('logo', localContent.logo, 'Logo Text', 'text')}
+            {renderField('displayName', localContent.displayName, 'Display Name', 'text')}
+            
+            {/* Colors */}
             <div>
-              <h4 className="text-sm font-medium text-gray-900">Links</h4>
-              <p className="text-xs text-gray-500 mb-2">Edit the navigation links shown in the header</p>
-              <div className="space-y-2">
-                {(content.navItems || [
-                  { label: 'About', href: '#about' },
-                  { label: 'Tokenomics', href: '#tokenomics' },
-                  { label: 'Roadmap', href: '#roadmap' },
-                  { label: 'Team', href: '#team' }
-                ]).map((item: any, index: number) => (
-                  <div key={index} className="grid grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      value={item.label || ''}
-                      onChange={(e) => {
-                        const newItems = [...(content.navItems || [])]
-                        newItems[index] = { ...item, label: e.target.value }
-                        handleContentChange('navItems', newItems)
-                      }}
-                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Label"
-                    />
-                    <input
-                      type="text"
-                      value={item.href || ''}
-                      onChange={(e) => {
-                        const newItems = [...(content.navItems || [])]
-                        newItems[index] = { ...item, href: e.target.value }
-                        handleContentChange('navItems', newItems)
-                      }}
-                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Link (href)"
-                    />
-                  </div>
-                ))}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      const newItems = [...(content.navItems || []), { label: '', href: '' }]
-                      handleContentChange('navItems', newItems)
-                    }}
-                    className="flex-1 py-2 text-xs text-blue-600 border border-dashed border-blue-300 rounded-md hover:bg-blue-50 transition-colors"
-                  >
-                    + Add Nav Item
-                  </button>
-                  <button
-                    onClick={() => handleContentChange('navItems', (content.navItems || []).slice(0, -1))}
-                    className="px-3 py-2 text-xs text-red-600 border border-dashed border-red-300 rounded-md hover:bg-red-50 transition-colors"
-                  >
-                    Remove Last
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Buttons */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-900">Buttons</h4>
-              <p className="text-xs text-gray-500 mb-2">Edit the primary call-to-action</p>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Colors
+              </label>
               <div className="grid grid-cols-2 gap-2">
-                <input
-                  type="text"
-                  value={(content.cta || {}).text || ''}
-                  onChange={(e) => handleContentChange('cta', { ...(content.cta || {}), text: e.target.value })}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  placeholder="Text (e.g., Buy Now)"
-                />
-                <input
-                  type="url"
-                  value={(content.cta || {}).href || ''}
-                  onChange={(e) => handleContentChange('cta', { ...(content.cta || {}), href: e.target.value })}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  placeholder="External URL (e.g., https://example.com)"
-                />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">Enter a full URL including https:// for external links</p>
-            </div>
-
-            {/* Image / Name */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-900">Image / Name</h4>
-              <p className="text-xs text-gray-500 mb-2">Upload a logo and set the displayed token name</p>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={async (e) => {
-                  const file = e.target.files && e.target.files[0]
-                  if (!file) return
-                  const reader = new FileReader()
-                  reader.onload = () => {
-                    handleContentChange('logoUrl', String(reader.result))
-                  }
-                  reader.readAsDataURL(file)
-                }}
-                className="block w-full text-xs text-gray-700"
-              />
-              {content.logoUrl && (
-                <img src={content.logoUrl} alt="Logo preview" className="mt-2 h-10 w-10 rounded object-cover" />
-              )}
-              <div className="mt-2">
-                <input
-                  type="text"
-                  value={content.displayName || ''}
-                  onChange={(e) => handleContentChange('displayName', e.target.value)}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  placeholder="Display name (e.g., MEME)"
-                />
-              </div>
-            </div>
-
-            {/* Socials */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-900">Socials</h4>
-              <p className="text-xs text-gray-500 mb-2">Links to your communities</p>
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={(content.social || {}).twitter || ''}
-                  onChange={(e) => handleContentChange('social', { ...(content.social || {}), twitter: e.target.value })}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  placeholder="X (Twitter) URL"
-                />
-                <input
-                  type="text"
-                  value={(content.social || {}).telegram || ''}
-                  onChange={(e) => handleContentChange('social', { ...(content.social || {}), telegram: e.target.value })}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  placeholder="Telegram URL"
-                />
-                <input
-                  type="text"
-                  value={(content.social || {}).discord || ''}
-                  onChange={(e) => handleContentChange('social', { ...(content.social || {}), discord: e.target.value })}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  placeholder="Discord URL"
-                />
-              </div>
-            </div>
-
-            {/* Colour Settings */}
-            <div>
-              <h4 className="text-sm font-medium text-gray-900">Colour Settings</h4>
-              <p className="text-xs text-gray-500 mb-2">Customize header colors</p>
-              
-              {/* Social Icons */}
-              <div className="mb-4">
-                <h5 className="text-xs font-medium text-gray-700 mb-2">Social Icons</h5>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={content.socialBgColor || `${template?.colors?.primary || '#1d4ed8'}20`}
-                      onChange={(e) => handleContentChange('socialBgColor', e.target.value)}
-                      aria-label="Social background color"
-                    />
-                    <span className="text-xs text-gray-700">Background</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={content.socialIconColor || template?.colors?.secondary || '#9333ea'}
-                      onChange={(e) => handleContentChange('socialIconColor', e.target.value)}
-                      aria-label="Social icon color"
-                    />
-                    <span className="text-xs text-gray-700">Icon Color</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* CTA Button */}
-              <div className="mb-4">
-                <h5 className="text-xs font-medium text-gray-700 mb-2">CTA Button</h5>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={content.buttonBgColor || template?.colors?.primary || '#1d4ed8'}
-                      onChange={(e) => handleContentChange('buttonBgColor', e.target.value)}
-                      aria-label="Button background color"
-                    />
-                    <span className="text-xs text-gray-700">Background</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={content.buttonTextColor || '#ffffff'}
-                      onChange={(e) => handleContentChange('buttonTextColor', e.target.value)}
-                      aria-label="Button text color"
-                    />
-                    <span className="text-xs text-gray-700">Text Color</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Navigation */}
-              <div className="mb-4">
-                <h5 className="text-xs font-medium text-gray-700 mb-2">Navigation</h5>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={content.navTextColor || (template?.slug === 'neon' ? 'rgba(255, 255, 255, 0.8)' : '#374151')}
-                      onChange={(e) => handleContentChange('navTextColor', e.target.value)}
-                      aria-label="Navigation text color"
-                    />
-                    <span className="text-xs text-gray-700">Text Color</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="color"
-                      value={content.navBgColor || (template?.slug === 'neon' ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.95)')}
-                      onChange={(e) => handleContentChange('navBgColor', e.target.value)}
-                      aria-label="Navigation background color"
-                    />
-                    <span className="text-xs text-gray-700">Background</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Token Name */}
-              <div>
-                <h5 className="text-xs font-medium text-gray-700 mb-2">Token Name</h5>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                                          value={content.tokenNameColor || (template?.slug === 'neon' ? 'white' : '#111827')}
-                    onChange={(e) => handleContentChange('tokenNameColor', e.target.value)}
-                    aria-label="Token name color"
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Primary</label>
+                  <ColorPicker
+                    color={localContent.colors?.primary || '#FF6B35'}
+                    onChange={(color) => handleContentChange('colors', { ...localContent.colors, primary: color })}
                   />
-                  <span className="text-xs text-gray-700">Text Color</span>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Secondary</label>
+                  <ColorPicker
+                    color={localContent.colors?.secondary || '#E55A2B'}
+                    onChange={(color) => handleContentChange('colors', { ...localContent.colors, secondary: color })}
+                  />
                 </div>
               </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Navigation Items
+              </label>
+              {(Array.isArray(localContent.navItems) ? localContent.navItems : []).map(renderNavItem)}
+              <button
+                onClick={() => handleArrayItemAdd('navItems', { text: 'New Item', href: '#' })}
+                className="w-full px-3 py-2 border border-gray-300 border-dashed rounded-md text-gray-500 hover:text-gray-700 hover:border-gray-400"
+              >
+                + Add Navigation Item
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Call to Action
+              </label>
+              <input
+                type="text"
+                value={localContent.cta?.text || ''}
+                onChange={(e) => handleContentChange('cta', { ...localContent.cta, text: e.target.value })}
+                placeholder="Button text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2 text-gray-900 placeholder:text-gray-500"
+              />
+              <input
+                type="text"
+                value={localContent.cta?.href || ''}
+                onChange={(e) => handleContentChange('cta', { ...localContent.cta, href: e.target.value })}
+                placeholder="Button link"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder:text-gray-500"
+              />
+              <select
+                value={localContent.cta?.variant || 'primary'}
+                onChange={(e) => handleContentChange('cta', { ...localContent.cta, variant: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+              >
+                <option value="primary">Primary Style</option>
+                <option value="secondary">Secondary Style</option>
+              </select>
             </div>
           </div>
-        )
+        );
+
       case 'hero':
         return (
-          <div className="space-y-6">
-            {/* Basic Content */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-900">Basic Content</h4>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-2">Title</label>
-                <input
-                  type="text"
-                  value={content.title || ''}
-                  onChange={(e) => handleContentChange('title', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter hero title"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-2">Subtitle</label>
-                <input
-                  type="text"
-                  value={content.subtitle || ''}
-                  onChange={(e) => handleContentChange('subtitle', e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter hero subtitle"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-2">Description</label>
-                <textarea
-                  value={content.description || ''}
-                  onChange={(e) => handleContentChange('description', e.target.value)}
-                  className="w-full h-20 px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  placeholder="Enter hero description"
-                />
-              </div>
+          <div className="space-y-4">
+            {renderField('title', localContent.title, 'Title', 'text')}
+            {renderField('subtitle', localContent.subtitle, 'Subtitle', 'text')}
+            {renderField('description', localContent.description, 'Description', 'textarea')}
+            {renderField('tokenSymbol', localContent.tokenSymbol, 'Token Symbol', 'text')}
+            {renderField('backgroundImage', localContent.backgroundImage, 'Background Image URL', 'url')}
+            
+            {/* Primary Button */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Primary Button
+              </label>
+              <input
+                type="text"
+                value={localContent.primaryButton?.text || ''}
+                onChange={(e) => handleContentChange('primaryButton', { ...localContent.primaryButton, text: e.target.value })}
+                placeholder="Button text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2 text-gray-900 placeholder:text-gray-500"
+              />
+              <input
+                type="text"
+                value={localContent.primaryButton?.href || ''}
+                onChange={(e) => handleContentChange('primaryButton', { ...localContent.primaryButton, href: e.target.value })}
+                placeholder="Button link"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder:text-gray-500"
+              />
+              <select
+                value={localContent.primaryButton?.variant || 'primary'}
+                onChange={(e) => handleContentChange('primaryButton', { ...localContent.primaryButton, variant: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+              >
+                <option value="primary">Primary Style</option>
+                <option value="secondary">Secondary Style</option>
+              </select>
             </div>
 
-            {/* Token Pill */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-900">Token Pill</h4>
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <label className="block text-xs font-medium text-gray-700 mb-2">Token Symbol</label>
+            {/* Secondary Button */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Secondary Button
+              </label>
+              <input
+                type="text"
+                value={localContent.secondaryButton?.text || ''}
+                onChange={(e) => handleContentChange('secondaryButton', { ...localContent.secondaryButton, text: e.target.value })}
+                placeholder="Button text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2 text-gray-900 placeholder:text-gray-500"
+              />
+              <input
+                type="text"
+                value={localContent.secondaryButton?.href || ''}
+                onChange={(e) => handleContentChange('secondaryButton', { ...localContent.secondaryButton, href: e.target.value })}
+                placeholder="Button link"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder:text-gray-500"
+              />
+              <select
+                value={localContent.secondaryButton?.variant || 'secondary'}
+                onChange={(e) => handleContentChange('secondaryButton', { ...localContent.secondaryButton, variant: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900"
+              >
+                <option value="primary">Primary Style</option>
+                <option value="secondary">Secondary Style</option>
+              </select>
+            </div>
+
+            {/* Stats */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Statistics
+              </label>
+              {(Array.isArray(localContent.stats) ? localContent.stats : []).map((stat: any, index: number) => (
+                <div key={index} className="border border-gray-200 rounded-md p-3 mb-2">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">Stat {index + 1}</span>
+                    <button
+                      onClick={() => handleArrayItemRemove('stats', index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
                   <input
                     type="text"
-                    value={content.tokenSymbol || ''}
-                    onChange={(e) => handleContentChange('tokenSymbol', e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="e.g., MEME"
+                    value={stat.icon || ''}
+                    onChange={(e) => handleArrayItemChange('stats', index, { ...stat, icon: e.target.value })}
+                    placeholder="Icon (emoji)"
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
                   />
-                </div>
-                <div className="ml-4">
-                  <label className="block text-xs font-medium text-gray-700 mb-2">Show Token Pill</label>
-                  <button
-                    onClick={() => handleContentChange('showTokenPill', !content.showTokenPill)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      content.showTokenPill !== false ? 'bg-blue-600' : 'bg-gray-200'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        content.showTokenPill !== false ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Stats Section */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-900">Stats Section</h4>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-600">Show Stats</span>
-                <button
-                  onClick={() => handleContentChange('showStats', !content.showStats)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    content.showStats !== false ? 'bg-blue-600' : 'bg-gray-200'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      content.showStats !== false ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-              {content.showStats !== false && (
-                <div className="space-y-3">
-                  {(content.stats || [
-                    { value: '10K+', label: 'Holders', color: 'primary' },
-                    { value: '$2.5M', label: 'Market Cap', color: 'secondary' },
-                    { value: '$500K', label: '24h Volume', color: 'accent' }
-                  ]).map((stat: any, index: number) => (
-                    <div key={index} className="p-3 border border-gray-200 rounded-md">
-                      <div className="grid grid-cols-3 gap-2 mb-2">
-                        <input
-                          type="text"
-                          value={stat.value || ''}
-                          onChange={(e) => {
-                            const newStats = [...(content.stats || [])]
-                            newStats[index] = { ...stat, value: e.target.value }
-                            handleContentChange('stats', newStats)
-                          }}
-                          className="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          placeholder="Value (e.g., 10K+)"
-                        />
-                        <input
-                          type="text"
-                          value={stat.label || ''}
-                          onChange={(e) => {
-                            const newStats = [...(content.stats || [])]
-                            newStats[index] = { ...stat, label: e.target.value }
-                            handleContentChange('stats', newStats)
-                          }}
-                          className="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                          placeholder="Label (e.g., Holders)"
-                        />
-                        <select
-                          value={stat.color || 'primary'}
-                          onChange={(e) => {
-                            const newStats = [...(content.stats || [])]
-                            newStats[index] = { ...stat, color: e.target.value }
-                            handleContentChange('stats', newStats)
-                          }}
-                          className="px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        >
-                          <option value="primary">Primary</option>
-                          <option value="secondary">Secondary</option>
-                          <option value="accent">Accent</option>
-                        </select>
-                      </div>
-                      <button
-                        onClick={() => {
-                          const newStats = [...(content.stats || [])]
-                          newStats.splice(index, 1)
-                          handleContentChange('stats', newStats)
-                        }}
-                        className="text-xs text-red-600 hover:text-red-800"
-                      >
-                        Remove Stat
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    onClick={() => {
-                      const newStats = [...(content.stats || []), { value: '', label: '', color: 'primary' }]
-                      handleContentChange('stats', newStats)
-                    }}
-                    className="w-full py-2 text-xs text-blue-600 border border-dashed border-blue-300 rounded-md hover:bg-blue-50 transition-colors"
-                  >
-                    + Add Stat
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* CTA Buttons */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-900">Call-to-Action Buttons</h4>
-              
-              {/* Primary Button */}
-              <div className="p-3 border border-gray-200 rounded-md">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-gray-700">Primary Button</span>
-                  <button
-                    onClick={() => handleContentChange('showPrimaryButton', !content.showPrimaryButton)}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                      content.showPrimaryButton !== false ? 'bg-blue-600' : 'bg-gray-200'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                        content.showPrimaryButton !== false ? 'translate-x-5' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </div>
-                {content.showPrimaryButton !== false && (
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={(content.primaryButton || {}).text || 'Buy Now'}
-                      onChange={(e) => handleContentChange('primaryButton', { ...(content.primaryButton || {}), text: e.target.value })}
-                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Button text"
-                    />
-                    <input
-                      type="text"
-                      value={(content.primaryButton || {}).href || ''}
-                      onChange={(e) => handleContentChange('primaryButton', { ...(content.primaryButton || {}), href: e.target.value })}
-                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Button link URL"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Secondary Button */}
-              <div className="p-3 border border-gray-200 rounded-md">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-medium text-gray-700">Secondary Button</span>
-                  <button
-                    onClick={() => handleContentChange('showSecondaryButton', !content.showSecondaryButton)}
-                    className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                      content.showSecondaryButton !== false ? 'bg-blue-600' : 'bg-gray-200'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-                        content.showSecondaryButton !== false ? 'translate-x-5' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </div>
-                {content.showSecondaryButton !== false && (
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={(content.secondaryButton || {}).text || 'Watch Video'}
-                      onChange={(e) => handleContentChange('secondaryButton', { ...(content.secondaryButton || {}), text: e.target.value })}
-                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Button text"
-                    />
-                    <input
-                      type="text"
-                      value={(content.secondaryButton || {}).href || ''}
-                      onChange={(e) => handleContentChange('secondaryButton', { ...(content.secondaryButton || {}), href: e.target.value })}
-                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Button link URL"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Token Visual Section */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-900">Token Visual</h4>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs text-gray-600">Show Token Visual</span>
-                <button
-                  onClick={() => handleContentChange('showTokenVisual', !content.showTokenVisual)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    content.showTokenVisual !== false ? 'bg-blue-600' : 'bg-gray-200'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      content.showTokenVisual !== false ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-              {content.showTokenVisual !== false && (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-2">Token Logo</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={async (e) => {
-                        const file = e.target.files && e.target.files[0]
-                        if (!file) return
-                        const reader = new FileReader()
-                        reader.onload = () => {
-                          handleContentChange('tokenLogo', String(reader.result))
-                        }
-                        reader.readAsDataURL(file)
-                      }}
-                      className="block w-full text-xs text-gray-700"
-                    />
-                    {content.tokenLogo && (
-                      <img src={content.tokenLogo} alt="Token logo preview" className="mt-2 h-12 w-12 rounded object-cover" />
-                    )}
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-2">Token Price</label>
-                    <input
-                      type="text"
-                      value={content.tokenPrice || '$0.0025'}
-                      onChange={(e) => handleContentChange('tokenPrice', e.target.value)}
-                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="e.g., $0.0025"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-2">24h Change</label>
-                    <input
-                      type="text"
-                      value={content.priceChange || '+15.2%'}
-                      onChange={(e) => handleContentChange('priceChange', e.target.value)}
-                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="e.g., +15.2%"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-2">Circulating Supply</label>
-                      <input
-                        type="text"
-                        value={content.circulatingSupply || '800M'}
-                        onChange={(e) => handleContentChange('circulatingSupply', e.target.value)}
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="e.g., 800M"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-700 mb-2">Total Supply</label>
-                      <input
-                        type="text"
-                        value={content.totalSupply || '1B'}
-                        onChange={(e) => handleContentChange('totalSupply', e.target.value)}
-                        className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                        placeholder="e.g., 1B"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Scroll Indicator */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-900">Scroll Indicator</h4>
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-gray-600">Show Scroll Indicator</span>
-                <button
-                  onClick={() => handleContentChange('showScrollIndicator', !content.showScrollIndicator)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    content.showScrollIndicator !== false ? 'bg-blue-600' : 'bg-gray-200'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      content.showScrollIndicator !== false ? 'translate-x-6' : 'translate-x-1'
-                    }`}
-                  />
-                </button>
-              </div>
-              {content.showScrollIndicator !== false && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-2">Scroll Text</label>
                   <input
                     type="text"
-                    value={content.scrollText || 'Scroll to explore'}
-                    onChange={(e) => handleContentChange('scrollText', e.target.value)}
-                    className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                    placeholder="Scroll indicator text"
+                    value={stat.value || ''}
+                    onChange={(e) => handleArrayItemChange('stats', index, { ...stat, value: e.target.value })}
+                    placeholder="Value"
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <input
+                    type="text"
+                    value={stat.label || ''}
+                    onChange={(e) => handleArrayItemChange('stats', index, { ...stat, label: e.target.value })}
+                    placeholder="Label"
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 placeholder:text-gray-500"
                   />
                 </div>
-              )}
+              ))}
+              <button
+                onClick={() => handleArrayItemAdd('stats', { icon: '🔥', value: '1M+', label: 'Holders' })}
+                className="w-full px-3 py-2 border border-gray-300 border-dashed rounded-md text-gray-500 hover:text-gray-700 hover:border-gray-400"
+              >
+                + Add Statistic
+              </button>
             </div>
 
-            {/* Colors */}
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium text-gray-900">Colors</h4>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={content.primaryColor || '#3B82F6'}
-                    onChange={(e) => handleContentChange('primaryColor', e.target.value)}
-                    aria-label="Primary color"
-                  />
-                  <span className="text-xs text-gray-700">Primary</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={content.secondaryColor || '#1E40AF'}
-                    onChange={(e) => handleContentChange('secondaryColor', e.target.value)}
-                    aria-label="Secondary color"
-                  />
-                  <span className="text-xs text-gray-700">Secondary</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={content.accentColor || '#F59E0B'}
-                    onChange={(e) => handleContentChange('accentColor', e.target.value)}
-                    aria-label="Accent color"
-                  />
-                  <span className="text-xs text-gray-700">Accent</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={content.backgroundColor || '#F9FAFB'}
-                    onChange={(e) => handleContentChange('backgroundColor', e.target.value)}
-                    aria-label="Background color"
-                  />
-                  <span className="text-xs text-gray-700">Background</span>
-                </div>
-              </div>
+            {/* Visibility Toggles */}
+            <div className="space-y-2">
+              <h4 className="text-sm font-medium text-gray-700">Visibility Options</h4>
+              {renderField('showTokenPill', localContent.showTokenPill, 'Show Token Pill', 'boolean')}
+              {renderField('showStats', localContent.showStats, 'Show Statistics', 'boolean')}
+              {renderField('showPrimaryButton', localContent.showPrimaryButton, 'Show Primary Button', 'boolean')}
+              {renderField('showSecondaryButton', localContent.showSecondaryButton, 'Show Secondary Button', 'boolean')}
+              {renderField('showTokenVisual', localContent.showTokenVisual, 'Show Token Visual', 'boolean')}
+  
             </div>
           </div>
-        )
+        );
 
       case 'about':
         return (
           <div className="space-y-4">
+            {renderField('title', localContent.title, 'Title', 'text')}
+            {renderField('description', localContent.description, 'Description', 'textarea')}
+            {renderField('content', localContent.content, 'Content', 'textarea')}
+            {renderField('contractAddress', localContent.contractAddress, 'Contract Address', 'text')}
+            
+            {/* CTA Section */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-2">Title</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Call to Action Section
+              </label>
               <input
                 type="text"
-                value={content.title || ''}
-                onChange={(e) => handleContentChange('title', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter about title"
+                value={localContent.ctaTitle || ''}
+                onChange={(e) => handleContentChange('ctaTitle', e.target.value)}
+                placeholder="CTA Title"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2 text-gray-900 placeholder:text-gray-500"
               />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-2">Description</label>
               <textarea
-                value={content.description || ''}
-                onChange={(e) => handleContentChange('description', e.target.value)}
-                className="w-full h-20 px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                placeholder="Enter about description"
+                value={localContent.ctaDescription || ''}
+                onChange={(e) => handleContentChange('ctaDescription', e.target.value)}
+                placeholder="CTA Description"
+                rows={2}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2 text-gray-900 placeholder:text-gray-500"
               />
             </div>
+
+            {/* CTA Buttons */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-2">Features</label>
-              <div className="space-y-2">
-                {(content.features || []).map((feature: any, index: number) => (
-                  <div key={index} className="p-3 border border-gray-200 rounded-md">
-                    <input
-                      type="text"
-                      value={feature.title || ''}
-                      onChange={(e) => {
-                        const newFeatures = [...(content.features || [])]
-                        newFeatures[index] = { ...feature, title: e.target.value }
-                        handleContentChange('features', newFeatures)
-                      }}
-                      className="w-full mb-2 px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      placeholder="Feature title"
-                    />
-                    <textarea
-                      value={feature.description || ''}
-                      onChange={(e) => {
-                        const newFeatures = [...(content.features || [])]
-                        newFeatures[index] = { ...feature, description: e.target.value }
-                        handleContentChange('features', newFeatures)
-                      }}
-                      className="w-full px-2 py-1 text-xs border border-gray-300 rounded bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
-                      placeholder="Feature description"
-                      rows={2}
-                    />
-                  </div>
-                ))}
-                <button
-                  onClick={() => {
-                    const newFeatures = [...(content.features || []), { title: '', description: '', icon: '💡' }]
-                    handleContentChange('features', newFeatures)
-                  }}
-                  className="w-full py-2 text-xs text-blue-600 border border-dashed border-blue-300 rounded-md hover:bg-blue-50 transition-colors"
-                >
-                  + Add Feature
-                </button>
-              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                CTA Primary Button
+              </label>
+              <input
+                type="text"
+                value={localContent.ctaPrimary?.text || ''}
+                onChange={(e) => handleContentChange('ctaPrimary', { ...localContent.ctaPrimary, text: e.target.value })}
+                placeholder="Button text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2 text-gray-900 placeholder:text-gray-500"
+              />
+              <input
+                type="text"
+                value={localContent.ctaPrimary?.href || ''}
+                onChange={(e) => handleContentChange('ctaPrimary', { ...localContent.ctaPrimary, href: e.target.value })}
+                placeholder="Button link"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder:text-gray-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                CTA Secondary Button
+              </label>
+              <input
+                type="text"
+                value={localContent.ctaSecondary?.text || ''}
+                onChange={(e) => handleContentChange('ctaSecondary', { ...localContent.ctaSecondary, text: e.target.value })}
+                placeholder="Button text"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md mb-2 text-gray-900 placeholder:text-gray-500"
+              />
+              <input
+                type="text"
+                value={localContent.ctaSecondary?.href || ''}
+                onChange={(e) => handleContentChange('ctaSecondary', { ...localContent.ctaSecondary, href: e.target.value })}
+                placeholder="Button link"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-gray-900 placeholder:text-gray-500"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Features
+              </label>
+              {(Array.isArray(localContent.features) ? localContent.features : []).map(renderFeature)}
+              <button
+                onClick={() => handleArrayItemAdd('features', { title: 'New Feature', description: 'Feature description', icon: '⚡', color: '#FF6B35' })}
+                className="w-full px-3 py-2 border border-gray-300 border-dashed rounded-md text-gray-500 hover:text-gray-700 hover:border-gray-400"
+              >
+                + Add Feature
+              </button>
             </div>
           </div>
-        )
+        );
 
       case 'tokenomics':
         return (
           <div className="space-y-4">
+            {renderField('title', localContent.title, 'Title', 'text')}
+            {renderField('description', localContent.description, 'Description', 'textarea')}
+            {renderField('totalSupply', localContent.totalSupply, 'Total Supply', 'text')}
+            
+            {/* Distribution */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-2">Title</label>
-              <input
-                type="text"
-                value={content.title || ''}
-                onChange={(e) => handleContentChange('title', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter tokenomics title"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-2">Description</label>
-              <textarea
-                value={content.description || ''}
-                onChange={(e) => handleContentChange('description', e.target.value)}
-                className="w-full h-20 px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                placeholder="Enter tokenomics description"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-2">Total Supply</label>
-              <input
-                type="text"
-                value={content.totalSupply || ''}
-                onChange={(e) => handleContentChange('totalSupply', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., 1,000,000,000"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Token Distribution
+              </label>
+              {(Array.isArray(localContent.distribution) ? localContent.distribution : []).map((item: any, index: number) => (
+                <div key={index} className="border border-gray-200 rounded-md p-3 mb-2">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">Distribution {index + 1}</span>
+                    <button
+                      onClick={() => handleArrayItemRemove('distribution', index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={item.label || ''}
+                    onChange={(e) => handleArrayItemChange('distribution', index, { ...item, label: e.target.value })}
+                    placeholder="Label (e.g., Liquidity Pool)"
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <input
+                    type="number"
+                    value={item.percentage || ''}
+                    onChange={(e) => handleArrayItemChange('distribution', index, { ...item, percentage: parseFloat(e.target.value) })}
+                    placeholder="Percentage"
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <ColorPicker
+                    color={item.color || '#FF6B35'}
+                    onChange={(color) => handleArrayItemChange('distribution', index, { ...item, color })}
+                  />
+                </div>
+              ))}
+              <button
+                onClick={() => handleArrayItemAdd('distribution', { label: 'New Allocation', percentage: 10, color: '#FF6B35' })}
+                className="w-full px-3 py-2 border border-gray-300 border-dashed rounded-md text-gray-500 hover:text-gray-700 hover:border-gray-400"
+              >
+                + Add Distribution
+              </button>
             </div>
           </div>
-        )
+        );
+
+      case 'roadmap':
+        return (
+          <div className="space-y-4">
+            {renderField('title', localContent.title, 'Title', 'text')}
+            {renderField('description', localContent.description, 'Description', 'textarea')}
+            
+            {/* Roadmap Phases */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Roadmap Phases
+              </label>
+              {(Array.isArray(localContent.phases) ? localContent.phases : []).map((phase: any, index: number) => (
+                <div key={index} className="border border-gray-200 rounded-md p-3 mb-2">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">Phase {index + 1}</span>
+                    <button
+                      onClick={() => handleArrayItemRemove('phases', index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={phase.title || ''}
+                    onChange={(e) => handleArrayItemChange('phases', index, { ...phase, title: e.target.value })}
+                    placeholder="Phase title"
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <textarea
+                    value={phase.description || ''}
+                    onChange={(e) => handleArrayItemChange('phases', index, { ...phase, description: e.target.value })}
+                    placeholder="Phase description"
+                    rows={2}
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <input
+                    type="text"
+                    value={phase.date || ''}
+                    onChange={(e) => handleArrayItemChange('phases', index, { ...phase, date: e.target.value })}
+                    placeholder="Date (e.g., Q1 2024)"
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <label className="flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(phase.completed)}
+                      onChange={(e) => handleArrayItemChange('phases', index, { ...phase, completed: e.target.checked })}
+                      className="mr-2"
+                    />
+                    <span className="text-sm text-gray-700">Completed</span>
+                  </label>
+                </div>
+              ))}
+              <button
+                onClick={() => handleArrayItemAdd('phases', { title: 'New Phase', description: 'Phase description', date: 'Q1 2024', completed: false })}
+                className="w-full px-3 py-2 border border-gray-300 border-dashed rounded-md text-gray-500 hover:text-gray-700 hover:border-gray-400"
+              >
+                + Add Phase
+              </button>
+            </div>
+          </div>
+        );
 
       case 'team':
         return (
           <div className="space-y-4">
+            {renderField('title', localContent.title, 'Title', 'text')}
+            {renderField('description', localContent.description, 'Description', 'textarea')}
+            
+            {/* Team Members */}
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-2">Title</label>
-              <input
-                type="text"
-                value={content.title || ''}
-                onChange={(e) => handleContentChange('title', e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter team title"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-2">Description</label>
-              <textarea
-                value={content.description || ''}
-                onChange={(e) => handleContentChange('description', e.target.value)}
-                className="w-full h-20 px-3 py-2 text-sm border border-gray-300 rounded-md bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                placeholder="Enter team description"
-              />
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Team Members
+              </label>
+              {(Array.isArray(localContent.members) ? localContent.members : []).map((member: any, index: number) => (
+                <div key={index} className="border border-gray-200 rounded-md p-3 mb-2">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">Member {index + 1}</span>
+                    <button
+                      onClick={() => handleArrayItemRemove('members', index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={member.name || ''}
+                    onChange={(e) => handleArrayItemChange('members', index, { ...member, name: e.target.value })}
+                    placeholder="Name"
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <input
+                    type="text"
+                    value={member.role || ''}
+                    onChange={(e) => handleArrayItemChange('members', index, { ...member, role: e.target.value })}
+                    placeholder="Role"
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <input
+                    type="text"
+                    value={member.avatar || ''}
+                    onChange={(e) => handleArrayItemChange('members', index, { ...member, avatar: e.target.value })}
+                    placeholder="Avatar (emoji)"
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <input
+                    type="url"
+                    value={member.social || ''}
+                    onChange={(e) => handleArrayItemChange('members', index, { ...member, social: e.target.value })}
+                    placeholder="Social URL"
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <textarea
+                    value={member.bio || ''}
+                    onChange={(e) => handleArrayItemChange('members', index, { ...member, bio: e.target.value })}
+                    placeholder="Bio"
+                    rows={2}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-gray-900 placeholder:text-gray-500"
+                  />
+                </div>
+              ))}
+              <button
+                onClick={() => handleArrayItemAdd('members', { name: 'New Member', role: 'Role', avatar: '👤', social: '', bio: 'Bio description' })}
+                className="w-full px-3 py-2 border border-gray-300 border-dashed rounded-md text-gray-500 hover:text-gray-700 hover:border-gray-400"
+              >
+                + Add Member
+              </button>
             </div>
           </div>
-        )
+        );
+
+      case 'community':
+        return (
+          <div className="space-y-4">
+            {renderField('title', localContent.title, 'Title', 'text')}
+            {renderField('description', localContent.description, 'Description', 'textarea')}
+            
+            {/* Community Cards */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Community Cards
+              </label>
+              {(Array.isArray(localContent.cards) ? localContent.cards : []).map((card: any, index: number) => (
+                <div key={index} className="border border-gray-200 rounded-md p-3 mb-2">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">Card {index + 1}</span>
+                    <button
+                      onClick={() => handleArrayItemRemove('cards', index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={card.title || ''}
+                    onChange={(e) => handleArrayItemChange('cards', index, { ...card, title: e.target.value })}
+                    placeholder="Card title"
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <textarea
+                    value={card.description || ''}
+                    onChange={(e) => handleArrayItemChange('cards', index, { ...card, description: e.target.value })}
+                    placeholder="Card description"
+                    rows={2}
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <input
+                    type="text"
+                    value={card.icon || ''}
+                    onChange={(e) => handleArrayItemChange('cards', index, { ...card, icon: e.target.value })}
+                    placeholder="Icon (emoji)"
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <input
+                    type="url"
+                    value={card.link || ''}
+                    onChange={(e) => handleArrayItemChange('cards', index, { ...card, link: e.target.value })}
+                    placeholder="Link URL"
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <ColorPicker
+                    color={card.color || '#FF6B35'}
+                    onChange={(color) => handleArrayItemChange('cards', index, { ...card, color })}
+                  />
+                </div>
+              ))}
+              <button
+                onClick={() => handleArrayItemAdd('cards', { title: 'New Card', description: 'Card description', icon: '🔗', link: '', color: '#FF6B35' })}
+                className="w-full px-3 py-2 border border-gray-300 border-dashed rounded-md text-gray-500 hover:text-gray-700 hover:border-gray-400"
+              >
+                + Add Card
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'token-details':
+        return (
+          <div className="space-y-4">
+            {renderField('title', localContent.title, 'Title', 'text')}
+            {renderField('description', localContent.description, 'Description', 'textarea')}
+            {renderField('contractAddress', localContent.contractAddress, 'Contract Address', 'text')}
+            
+            {/* Token Features */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Token Features
+              </label>
+              {(Array.isArray(localContent.features) ? localContent.features : []).map((feature: any, index: number) => (
+                <div key={index} className="border border-gray-200 rounded-md p-3 mb-2">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium">Feature {index + 1}</span>
+                    <button
+                      onClick={() => handleArrayItemRemove('features', index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={feature.title || ''}
+                    onChange={(e) => handleArrayItemChange('features', index, { ...feature, title: e.target.value })}
+                    placeholder="Feature title"
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <textarea
+                    value={feature.description || ''}
+                    onChange={(e) => handleArrayItemChange('features', index, { ...feature, description: e.target.value })}
+                    placeholder="Feature description"
+                    rows={2}
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <input
+                    type="text"
+                    value={feature.icon || ''}
+                    onChange={(e) => handleArrayItemChange('features', index, { ...feature, icon: e.target.value })}
+                    placeholder="Icon (emoji)"
+                    className="w-full px-2 py-1 border border-gray-300 rounded mb-2 text-gray-900 placeholder:text-gray-500"
+                  />
+                  <ColorPicker
+                    color={feature.color || '#FF6B35'}
+                    onChange={(color) => handleArrayItemChange('features', index, { ...feature, color })}
+                  />
+                </div>
+              ))}
+              <button
+                onClick={() => handleArrayItemAdd('features', { title: 'New Feature', description: 'Feature description', icon: '⚡', color: '#FF6B35' })}
+                className="w-full px-3 py-2 border border-gray-300 border-dashed rounded-md text-gray-500 hover:text-gray-700 hover:border-gray-400"
+              >
+                + Add Feature
+              </button>
+            </div>
+          </div>
+        );
+
+      case 'footer':
+        return (
+          <div className="space-y-4">
+            {renderField('copyright', localContent.copyright, 'Copyright Text', 'text')}
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Social Links
+              </label>
+              {localContent.social && Object.entries(localContent.social).map(([platform, url]) => 
+                renderSocialLink(platform, url as string)
+              )}
+              <div className="space-y-2">
+                {['twitter', 'discord', 'telegram', 'github', 'linkedin'].map(platform => {
+                  if (!localContent.social || !localContent.social[platform]) {
+                    return (
+                      <button
+                        key={platform}
+                        onClick={() => handleContentChange('social', { ...localContent.social, [platform]: '' })}
+                        className="w-full px-3 py-2 border border-gray-300 border-dashed rounded-md text-gray-500 hover:text-gray-700 hover:border-gray-400 capitalize"
+                      >
+                        + Add {platform}
+                      </button>
+                    );
+                  }
+                  return null;
+                })}
+              </div>
+            </div>
+          </div>
+        );
 
       default:
         return (
-          <div className="p-4 text-center text-gray-500">
-            <p>No content fields available for this block type</p>
+          <div className="space-y-4">
+            {Object.entries(localContent).map(([key, value]) => {
+              if (typeof value === 'string') {
+                return renderField(key, value, key.charAt(0).toUpperCase() + key.slice(1), 'text');
+              }
+              return null;
+            })}
           </div>
-        )
+        );
     }
-  }
+  };
 
   return (
-    <div className="p-6 space-y-6">
-
-
-      {/* Visibility Toggle */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <label className="text-sm font-medium text-gray-900">Block Visibility</label>
-            <p className="text-xs text-gray-500">Show or hide this block on the page</p>
-          </div>
-          <button
-            onClick={() => onToggleEnabled && onToggleEnabled(block.id, !(block.is_enabled !== false))}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              (block.is_enabled !== false) ? 'bg-blue-600' : 'bg-gray-200'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                (block.is_enabled !== false) ? 'translate-x-6' : 'translate-x-1'
-              }`}
+    <div className="flex flex-col h-full">
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 capitalize">
+            {block.type} Settings
+          </h3>
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={Boolean(block.is_enabled)}
+              onChange={(e) => onToggleEnabled(block.id!, e.target.checked)}
+              className="mr-2"
             />
-          </button>
+            <span className="text-sm text-gray-700">Enabled</span>
+          </label>
+        </div>
+        
+        <div className="text-sm text-gray-500 mb-4">
+          Block ID: {block.id}
         </div>
       </div>
 
-      {/* Content Fields */}
-      <div className="space-y-4">
-        <h4 className="text-sm font-medium text-gray-900">Content</h4>
-        {renderContentFields()}
+      <div className="flex-1 overflow-y-auto p-4">
+        <div className="space-y-6">
+          {renderBlockSpecificSettings()}
+        </div>
       </div>
-
-      {/* Removed non-functional styling and custom CSS controls */}
     </div>
-  )
-}
+  );
+};
+
+export default BlockSettings;

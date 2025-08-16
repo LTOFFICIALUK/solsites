@@ -1,7 +1,10 @@
 import { PieChart, TrendingUp, Lock, Users, Gift } from 'lucide-react'
+import { getIconComponent } from '@/lib/icons'
 
 interface TokenomicsProps {
   tokenSymbol: string
+  title?: string
+  description?: string
   totalSupply: string
   distribution: Array<{
     name: string
@@ -10,6 +13,12 @@ interface TokenomicsProps {
     color: string
     description: string
   }>
+  features?: Array<{
+    title: string
+    description: string
+    icon: React.ReactNode | string
+  }>
+  layout?: 'chart-left' | 'chart-right'
   primaryColor: string
   secondaryColor: string
   accentColor: string
@@ -18,8 +27,12 @@ interface TokenomicsProps {
 
 export const Tokenomics = ({
   tokenSymbol,
+  title,
+  description,
   totalSupply,
   distribution,
+  features,
+  layout = 'chart-left',
   primaryColor,
   secondaryColor,
   accentColor,
@@ -33,16 +46,16 @@ export const Tokenomics = ({
             className="text-4xl md:text-5xl font-bold mb-6"
             style={{ color: primaryColor }}
           >
-            {tokenSymbol} Tokenomics
+            {title || `${tokenSymbol} Tokenomics`}
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Transparent token distribution designed for long-term growth and community rewards.
+            {description || "Transparent token distribution designed for long-term growth and community rewards."}
           </p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        <div className={`grid grid-cols-1 lg:grid-cols-2 gap-12 items-center ${layout === 'chart-right' ? 'lg:grid-flow-col-dense' : ''}`}>
           {/* Chart */}
-          <div className="relative">
+          <div className={`relative ${layout === 'chart-right' ? 'lg:col-start-2' : ''}`}>
             <div className="w-80 h-80 mx-auto relative">
               {/* Pie Chart Visualization */}
               <div className="w-full h-full rounded-full relative overflow-hidden">
@@ -75,7 +88,7 @@ export const Tokenomics = ({
           </div>
 
           {/* Distribution Details */}
-          <div className="space-y-6">
+          <div className={`space-y-6 ${layout === 'chart-right' ? 'lg:col-start-1' : ''}`}>
             {distribution.map((item, index) => (
               <div key={item.name} className="flex items-center space-x-4">
                 <div 
@@ -96,23 +109,29 @@ export const Tokenomics = ({
         </div>
 
         {/* Additional Info */}
-        <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="text-center p-6 rounded-2xl" style={{ backgroundColor: `${primaryColor}05` }}>
-            <Lock className="w-12 h-12 mx-auto mb-4" style={{ color: primaryColor }} />
-            <h3 className="text-xl font-semibold mb-2">Liquidity Locked</h3>
-            <p className="text-gray-600">Liquidity locked for maximum security</p>
+        {features && features.length > 0 && (
+          <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
+            {features.map((feature, index) => (
+              <div key={index} className="text-center p-6 rounded-2xl" style={{ backgroundColor: `${primaryColor}05` }}>
+                <div className="w-12 h-12 mx-auto mb-4 flex items-center justify-center" style={{ color: primaryColor }}>
+                  {(() => {
+                    if (typeof feature.icon === 'string') {
+                      try {
+                        const Icon = getIconComponent(feature.icon)
+                        return <Icon className="w-8 h-8" />
+                      } catch {
+                        return <Users className="w-8 h-8" />
+                      }
+                    }
+                    return feature.icon
+                  })()}
+                </div>
+                <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
+                <p className="text-gray-600">{feature.description}</p>
+              </div>
+            ))}
           </div>
-          <div className="text-center p-6 rounded-2xl" style={{ backgroundColor: `${secondaryColor}05` }}>
-            <TrendingUp className="w-12 h-12 mx-auto mb-4" style={{ color: secondaryColor }} />
-            <h3 className="text-xl font-semibold mb-2">Zero Tax</h3>
-            <p className="text-gray-600">No buy or sell taxes</p>
-          </div>
-          <div className="text-center p-6 rounded-2xl" style={{ backgroundColor: `${accentColor}05` }}>
-            <Gift className="w-12 h-12 mx-auto mb-4" style={{ color: accentColor }} />
-            <h3 className="text-xl font-semibold mb-2">Community Rewards</h3>
-            <p className="text-gray-600">Regular rewards for holders</p>
-          </div>
-        </div>
+        )}
       </div>
     </section>
   )
@@ -154,5 +173,24 @@ export const defaultTokenomics = [
     amount: "50,000,000",
     color: "#8B5CF6",
     description: "Emergency reserve fund"
+  }
+]
+
+// Default features for tokenomics
+export const defaultTokenomicsFeatures = [
+  {
+    title: "Liquidity Locked",
+    description: "Liquidity locked for maximum security",
+    icon: <Lock className="w-8 h-8" />
+  },
+  {
+    title: "Zero Tax",
+    description: "No buy or sell taxes",
+    icon: <TrendingUp className="w-8 h-8" />
+  },
+  {
+    title: "Community Rewards",
+    description: "Regular rewards for holders",
+    icon: <Gift className="w-8 h-8" />
   }
 ]

@@ -31,6 +31,8 @@ interface MinimalTemplateProps {
       website?: string
     }
     header?: {
+      displayName?: string
+      colors?: { primary?: string; secondary?: string }
       navItems?: Array<{ label: string; href: string }>
       cta?: { text: string; href?: string }
     }
@@ -49,28 +51,53 @@ interface MinimalTemplateProps {
         description: string
         icon: string
       }>
-      roadmap: Array<{
-        title: string
-        description: string
-        date: string
-        completed: boolean
-      }>
+      roadmap: {
+        title?: string
+        description?: string
+        showCtaButton?: boolean
+        ctaButton?: {
+          text?: string
+          href?: string
+        }
+        phases: Array<{
+          title: string
+          description: string
+          date: string
+          completed: boolean
+        }>
+      }
       team: Array<{
         name: string
         role: string
         avatar: string
         social?: string
       }>
+      footer?: {
+        tokenSymbol?: string
+        description?: string
+        social?: {
+          twitter?: string
+          telegram?: string
+          discord?: string
+          website?: string
+        }
+        tokenLinks?: Array<{ label: string; href: string }>
+        communityLinks?: Array<{ label: string; href: string }>
+        copyrightText?: string
+        backgroundColor?: string
+        textColor?: string
+        mutedTextColor?: string
+        borderColor?: string
+        columns?: string
+        padding?: string
+      }
     }
   }
-  visibility?: Partial<Record<'navbar' | 'hero' | 'about' | 'tokenomics' | 'team' | 'roadmap' | 'footer', boolean>>
-  onEdit?: {
-    hero?: { title?: (v: string) => void; subtitle?: (v: string) => void; description?: (v: string) => void }
-    about?: { title?: (v: string) => void; content?: (v: string) => void }
-  }
+  visibility?: Partial<Record<'navbar' | 'hero' | 'about' | 'tokenomics' | 'roadmap' | 'team' | 'footer', boolean>>
+
 }
 
-export const MinimalTemplate = ({ projectData, visibility, onEdit }: MinimalTemplateProps) => {
+export const MinimalTemplate = ({ projectData, visibility }: MinimalTemplateProps) => {
   const { tokenInfo, branding, social, content } = projectData
   const show = (key: keyof NonNullable<MinimalTemplateProps['visibility']>) => visibility?.[key] ?? true
 
@@ -128,7 +155,7 @@ export const MinimalTemplate = ({ projectData, visibility, onEdit }: MinimalTemp
         navItems={projectData?.header?.navItems}
         cta={projectData?.header?.cta}
         social={social}
-        colors={projectData?.header?.colors}
+        colors={projectData?.header?.colors as any}
       />)}
 
       {/* Hero Section */}
@@ -143,7 +170,7 @@ export const MinimalTemplate = ({ projectData, visibility, onEdit }: MinimalTemp
         accentColor={branding.accentColor}
         backgroundImage={branding.banner}
         logo={branding.logo}
-        onEdit={onEdit?.hero as any}
+
       />)}
 
       {/* About Section */}
@@ -160,7 +187,7 @@ export const MinimalTemplate = ({ projectData, visibility, onEdit }: MinimalTemp
             features: content.features.map((f) => f.title || String(f))
           }
         }}
-        onEdit={onEdit?.about as any}
+
       />)}
 
       {/* Tokenomics Section */}
@@ -178,7 +205,11 @@ export const MinimalTemplate = ({ projectData, visibility, onEdit }: MinimalTemp
         primaryColor={branding.primaryColor}
         secondaryColor={branding.secondaryColor}
         accentColor={branding.accentColor}
-        content={{ roadmap: content.roadmap }}
+        content={{
+          title: content.roadmap?.title || 'Roadmap',
+          description: content.roadmap?.description || 'Our journey to success',
+          roadmap: Array.isArray(content.roadmap) ? content.roadmap : content.roadmap?.phases || []
+        }}
       />)}
 
       {/* Team Section */}
@@ -187,17 +218,21 @@ export const MinimalTemplate = ({ projectData, visibility, onEdit }: MinimalTemp
         primaryColor={branding.primaryColor}
         secondaryColor={branding.secondaryColor}
         accentColor={branding.accentColor}
-        content={{ team: content.team }}
+        content={{
+          title: (content as any).team?.title,
+          description: (content as any).team?.description,
+          members: (content as any).team?.members || content.team
+        }}
       />)}
 
       {/* Footer */}
       {show('footer') && (
       <MinimalFooter
-        tokenSymbol={tokenInfo.symbol}
-        social={social}
+        projectName={tokenInfo.name}
         primaryColor={branding.primaryColor}
         secondaryColor={branding.secondaryColor}
         accentColor={branding.accentColor}
+        colors={projectData?.header?.colors as any}
       />)}
     </div>
   )

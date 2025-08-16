@@ -6,7 +6,7 @@ interface AboutProps {
   features: Array<{
     title: string
     description: string
-    icon: React.ReactNode
+    icon: React.ReactNode | string
   }>
   primaryColor: string
   secondaryColor: string
@@ -38,7 +38,7 @@ export const About = ({
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
           {features.map((feature, index) => (
             <div 
               key={index}
@@ -55,7 +55,7 @@ export const About = ({
                   color: primaryColor
                 }}
               >
-                {feature.icon}
+                {typeof feature.icon === 'string' ? feature.icon : feature.icon}
               </div>
               <h3 className="text-xl font-semibold mb-3">{feature.title}</h3>
               <p className="text-gray-600">{feature.description}</p>

@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/AuthContext'
-import { projectService, templateService } from '@/lib/services'
-import { UserProject, Template } from '@/lib/supabase'
+import { getUserProjects, getTemplates, createProjectFromTemplate } from '@/lib/services'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -35,8 +34,8 @@ import {
 export default function DashboardPage() {
   const { user, loading, signOut } = useAuth()
   const router = useRouter()
-  const [projects, setProjects] = useState<UserProject[]>([])
-  const [templates, setTemplates] = useState<Template[]>([])
+  const [projects, setProjects] = useState<any[]>([])
+  const [templates, setTemplates] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
@@ -45,6 +44,10 @@ export default function DashboardPage() {
   const [isChecking, setIsChecking] = useState(false)
   const [domainStatus, setDomainStatus] = useState<{[key: string]: 'available' | 'taken' | 'checking' | 'invalid'}>({})
   const [showMobileRightPanel, setShowMobileRightPanel] = useState(false)
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('')
+  const [projectName, setProjectName] = useState('')
+  const [isCreating, setIsCreating] = useState(false)
 
   useEffect(() => {
     if (user && !loading) {
@@ -64,136 +67,75 @@ export default function DashboardPage() {
 
   const loadData = async () => {
     try {
+      console.log('Loading data for user:', user?.id)
       const [userProjects, allTemplates] = await Promise.all([
-        projectService.getUserProjects(user!.id),
-        templateService.getAllTemplates()
+        getUserProjects(user!.id),
+        getTemplates()
       ])
+      console.log('Loaded projects:', userProjects.length, 'templates:', allTemplates.length)
+      console.log('Templates data:', allTemplates.map(t => ({ id: t.id, slug: t.slug, name: t.name })))
       setProjects(userProjects)
       setTemplates(allTemplates)
     } catch (error) {
       console.error('Error loading data:', error)
+      // Set empty arrays to prevent UI from breaking
+      setProjects([])
+      setTemplates([])
     } finally {
       setIsLoading(false)
     }
   }
 
-  const handleCreateProject = async (templateId: string) => {
+  const handleCreateProject = async (templateSlug: string) => {
     if (!user) return
-
-    try {
-      const projectName = prompt('Enter your project name:')
-      if (!projectName) return
-
-      const project = await projectService.createProject({
-        user_id: user.id,
-        template_id: templateId,
-        name: projectName,
-        slug: `${projectName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`,
-        domain: `${projectName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}.solsites.fun`,
-        data: {
-          tokenInfo: {
-            name: projectName,
-            symbol: projectName.substring(0, 4).toUpperCase(),
-            contractAddress: '0x1234567890abcdef1234567890abcdef12345678',
-            description: 'Join the revolution with our innovative meme coin that combines humor, community, and cutting-edge blockchain technology.'
-          },
-          branding: {
-            primaryColor: '#3B82F6',
-            secondaryColor: '#1E40AF',
-            accentColor: '#F59E0B',
-            logo: '🚀',
-            banner: 'https://picsum.photos/1200/400'
-          },
-          social: {
-            twitter: 'https://twitter.com/memetoken',
-            telegram: 'https://t.me/memetoken',
-            discord: 'https://discord.gg/memetoken',
-            website: 'https://memetoken.com'
-          },
-          content: {
-            hero: {
-              title: 'Welcome to the Future',
-              subtitle: 'The Next Big Thing in Crypto',
-              description: 'Join the revolution with our innovative meme coin that combines humor, community, and cutting-edge blockchain technology.'
-            },
-            about: {
-              title: 'About Our Project',
-              content: 'We\'re building something special that will change the crypto landscape forever.'
-            },
-            features: [
-              {
-                title: 'Community Driven',
-                description: 'Built by the community, for the community.',
-                icon: 'users'
-              },
-              {
-                title: 'Transparent',
-                description: 'Full transparency in all our operations and decisions.',
-                icon: 'eye'
-              },
-              {
-                title: 'Innovative',
-                description: 'Cutting-edge technology and forward-thinking approach.',
-                icon: 'zap'
-              }
-            ],
-            roadmap: [
-              {
-                title: 'Phase 1: Launch',
-                description: 'Initial token launch and community building',
-                date: 'Q1 2024',
-                completed: true
-              },
-              {
-                title: 'Phase 2: Development',
-                description: 'Core features and platform development',
-                date: 'Q2 2024',
-                completed: false
-              },
-              {
-                title: 'Phase 3: Expansion',
-                description: 'Partnerships and ecosystem growth',
-                date: 'Q3 2024',
-                completed: false
-              }
-            ],
-            team: [
-              {
-                name: 'Alex Johnson',
-                role: 'Founder & CEO',
-                avatar: '',
-                social: 'https://twitter.com/alexjohnson'
-              },
-              {
-                name: 'Sarah Chen',
-                role: 'Lead Developer',
-                avatar: '',
-                social: 'https://twitter.com/sarahchen'
-              },
-              {
-                name: 'Mike Rodriguez',
-                role: 'Marketing Director',
-                avatar: '',
-                social: 'https://twitter.com/mikerodriguez'
-              }
-            ]
-          }
-        },
-        is_published: false
-      })
-
-      setProjects([project, ...projects])
-    } catch (error) {
-      console.error('Error creating project:', error)
-      alert('Failed to create project')
-    }
+    
+    console.log('Creating project with template slug:', templateSlug)
+    console.log('Template data:', templates.find(t => t.slug === templateSlug))
+    setSelectedTemplate(templateSlug)
+    setProjectName('')
+    setShowCreateModal(true)
   }
 
+  const handleCreateProjectSubmit = async () => {
+    if (!user || !projectName.trim()) return
+
+    setIsCreating(true)
+    try {
+      const slug = `${projectName.toLowerCase().replace(/[^a-z0-9]/g, '-')}-${Date.now()}`
+      
+      console.log('Submitting project creation with template:', selectedTemplate)
+      const projectId = await createProjectFromTemplate(
+        user.id,
+        projectName,
+        slug,
+        selectedTemplate
+      )
+
+      console.log('Project created successfully:', projectId)
+      
+      // Close modal and reset state
+      setShowCreateModal(false)
+      setProjectName('')
+      setSelectedTemplate('')
+      
+      // Reload projects to show the new one
+      await loadData()
+      
+      // Navigate to the editor
+      router.push(`/edit/${projectId}`)
+    } catch (error) {
+      console.error('Error creating project:', error)
+      alert('Failed to create project. Please try again.')
+    } finally {
+      setIsCreating(false)
+    }
+  }
   const handleDeleteProject = async (projectId: string) => {
     if (!confirm('Are you sure you want to delete this project?')) return
 
     try {
-      await projectService.deleteProject(projectId)
+      // For now, just remove from local state
+      // TODO: Add deleteProject function to services
       setProjects(projects.filter(p => p.id !== projectId))
     } catch (error) {
       console.error('Error deleting project:', error)
@@ -234,12 +176,8 @@ export default function DashboardPage() {
     try {
       const fullDomain = `${newDomain.toLowerCase().replace(/[^a-z0-9-]/g, '-')}.solsites.fun`
       
-      // Update project domain in database
-      await projectService.updateProject(editingDomain, {
-        domain: fullDomain
-      })
-
-      // Update local state
+      // TODO: Add updateProject function to services
+      // For now, just update local state
       setProjects(projects.map(p => 
         p.id === editingDomain 
           ? { ...p, domain: fullDomain }
@@ -393,7 +331,7 @@ export default function DashboardPage() {
                         </Button>
                       </Link>
                       <Button
-                        onClick={() => handleCreateProject(template.id)}
+                        onClick={() => handleCreateProject(template.slug)}
                         size="sm"
                         className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
                       >
@@ -1324,6 +1262,79 @@ export default function DashboardPage() {
           {renderContent()}
         </main>
       </div>
+
+      {/* Create Project Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-75 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border border-gray-200">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Create New Project</h2>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1 rounded-full hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-5">
+              <div>
+                <label htmlFor="projectName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Project Name
+                </label>
+                <input
+                  type="text"
+                  id="projectName"
+                  value={projectName}
+                  onChange={(e) => setProjectName(e.target.value)}
+                  placeholder="Enter your project name"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-900 placeholder-gray-500"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && projectName.trim()) {
+                      handleCreateProjectSubmit()
+                    }
+                  }}
+                />
+              </div>
+              
+              <div className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center space-x-2 text-sm">
+                  <TemplateIcon className="w-4 h-4 text-purple-600" />
+                  <span className="font-medium text-gray-700">Template:</span>
+                  <span className="text-gray-900">{templates.find(t => t.id === selectedTemplate)?.name || 'Unknown Template'}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors"
+                disabled={isCreating}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateProjectSubmit}
+                disabled={!projectName.trim() || isCreating}
+                className="flex-1 px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 shadow-lg"
+              >
+                {isCreating ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Creating...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    <span>Create Project</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

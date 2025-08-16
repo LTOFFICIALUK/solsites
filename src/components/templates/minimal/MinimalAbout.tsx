@@ -12,10 +12,7 @@ interface MinimalAboutProps {
       features: string[]
     }
   }
-  onEdit?: {
-    title?: (value: string) => void
-    content?: (value: string) => void
-  }
+
 }
 
 export function MinimalAbout({ primaryColor, secondaryColor, accentColor, content }: MinimalAboutProps) {
@@ -41,7 +38,7 @@ export function MinimalAbout({ primaryColor, secondaryColor, accentColor, conten
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {content.about.features.map((feature, index) => (
+          {(content.about.features || []).map((feature, index) => (
             <div 
               key={index}
               className="text-center p-6 rounded-lg border border-gray-200 hover:shadow-lg transition-shadow"

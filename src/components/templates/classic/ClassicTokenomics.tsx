@@ -1,4 +1,5 @@
 import { Lock, TrendingUp, Gift } from 'lucide-react'
+import { getIconComponent } from '@/lib/icons'
 
 interface ClassicTokenomicsProps {
   title: string
@@ -9,6 +10,7 @@ interface ClassicTokenomicsProps {
     percentage: number
     color: string
   }>
+  features?: Array<{ title: string; description: string; icon: string }>
   primaryColor: string
   secondaryColor: string
   accentColor: string
@@ -19,6 +21,7 @@ export const ClassicTokenomics = ({
   description,
   totalSupply,
   distribution,
+  features,
   primaryColor,
   secondaryColor,
   accentColor
@@ -80,21 +83,39 @@ export const ClassicTokenomics = ({
 
         {/* Additional Info */}
         <div className="mt-16 grid grid-cols-1 md:grid-cols-3 gap-8">
-          <div className="text-center p-6 rounded-2xl bg-white classic-shadow">
-            <Lock className="w-12 h-12 mx-auto mb-4" style={{ color: primaryColor }} />
-            <h3 className="text-xl font-semibold mb-2">Liquidity Locked</h3>
-            <p className="text-gray-600">Liquidity locked for maximum security</p>
-          </div>
-          <div className="text-center p-6 rounded-2xl bg-white classic-shadow">
-            <TrendingUp className="w-12 h-12 mx-auto mb-4" style={{ color: secondaryColor }} />
-            <h3 className="text-xl font-semibold mb-2">Zero Tax</h3>
-            <p className="text-gray-600">No buy or sell taxes</p>
-          </div>
-          <div className="text-center p-6 rounded-2xl bg-white classic-shadow">
-            <Gift className="w-12 h-12 mx-auto mb-4" style={{ color: accentColor }} />
-            <h3 className="text-xl font-semibold mb-2">Community Rewards</h3>
-            <p className="text-gray-600">Regular rewards for holders</p>
-          </div>
+          {(features && features.length > 0) ? (
+            features.map((f, idx) => {
+              const Icon = (() => {
+                try { return getIconComponent(f.icon || 'users') } catch { return Lock }
+              })()
+              const color = idx === 0 ? primaryColor : idx === 1 ? secondaryColor : accentColor
+              return (
+                <div key={idx} className="text-center p-6 rounded-2xl bg-white classic-shadow">
+                  <Icon className="w-12 h-12 mx-auto mb-4" style={{ color }} />
+                  <h3 className="text-xl font-semibold mb-2">{f.title}</h3>
+                  <p className="text-gray-600">{f.description}</p>
+                </div>
+              )
+            })
+          ) : (
+            <>
+              <div className="text-center p-6 rounded-2xl bg-white classic-shadow">
+                <Lock className="w-12 h-12 mx-auto mb-4" style={{ color: primaryColor }} />
+                <h3 className="text-xl font-semibold mb-2">Liquidity Locked</h3>
+                <p className="text-gray-600">Liquidity locked for maximum security</p>
+              </div>
+              <div className="text-center p-6 rounded-2xl bg-white classic-shadow">
+                <TrendingUp className="w-12 h-12 mx-auto mb-4" style={{ color: secondaryColor }} />
+                <h3 className="text-xl font-semibold mb-2">Zero Tax</h3>
+                <p className="text-gray-600">No buy or sell taxes</p>
+              </div>
+              <div className="text-center p-6 rounded-2xl bg-white classic-shadow">
+                <Gift className="w-12 h-12 mx-auto mb-4" style={{ color: accentColor }} />
+                <h3 className="text-xl font-semibold mb-2">Community Rewards</h3>
+                <p className="text-gray-600">Regular rewards for holders</p>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </section>

@@ -24,13 +24,8 @@ interface ClassicHeroProps {
   priceChange?: string
   circulatingSupply?: string
   totalSupply?: string
-  showScrollIndicator?: boolean
-  scrollText?: string
-  onEdit?: {
-    title?: (value: string) => void
-    subtitle?: (value: string) => void
-    description?: (value: string) => void
-  }
+
+
 }
 
 export const ClassicHero = ({
@@ -61,9 +56,8 @@ export const ClassicHero = ({
   priceChange = '+15.2%',
   circulatingSupply = '800M',
   totalSupply = '1B',
-  showScrollIndicator = true,
-  scrollText = 'Scroll to explore',
-  onEdit
+
+
 }: ClassicHeroProps) => {
   const getColorByType = (colorType: string) => {
     switch (colorType) {
@@ -112,33 +106,16 @@ export const ClassicHero = ({
 
             {/* Main Content */}
             <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-              <span
-                contentEditable={!!onEdit?.title}
-                suppressContentEditableWarning
-                onBlur={(e) => onEdit?.title?.(e.currentTarget.textContent || '')}
-              >
-                {title}
-              </span>
+              <span>{title}</span>
               <span 
                 className="block"
                 style={{ color: primaryColor }}
               >
-                <span
-                  contentEditable={!!onEdit?.subtitle}
-                  suppressContentEditableWarning
-                  onBlur={(e) => onEdit?.subtitle?.(e.currentTarget.textContent || '')}
-                >
-                  {subtitle}
-                </span>
+                {subtitle}
               </span>
             </h1>
 
-            <p
-              className="text-xl text-gray-600 mb-8 max-w-2xl"
-              contentEditable={!!onEdit?.description}
-              suppressContentEditableWarning
-              onBlur={(e) => onEdit?.description?.(e.currentTarget.textContent || '')}
-            >
+            <p className="text-xl text-gray-600 mb-8 max-w-2xl">
               {description}
             </p>
 
@@ -241,20 +218,7 @@ export const ClassicHero = ({
         </div>
       </div>
 
-      {/* Scroll Indicator */}
-      {showScrollIndicator && (
-        <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2">
-          <div className="flex flex-col items-center">
-            <span className="text-sm text-gray-500 mb-2">{scrollText}</span>
-            <div className="w-6 h-10 rounded-full border-2 flex justify-center" style={{ borderColor: primaryColor }}>
-              <div 
-                className="w-1 h-3 rounded-full mt-2 animate-bounce"
-                style={{ backgroundColor: primaryColor }}
-              ></div>
-            </div>
-          </div>
-        </div>
-      )}
+
     </section>
   )
 }
